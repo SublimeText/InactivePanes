@@ -25,177 +25,176 @@ settings = sublime.load_settings('Preferences.sublime-settings')
 
 
 class Origami(object):
-	enabled    = settings.get('fade_inactive_panes', False)
-	grey_scale = settings.get('fade_inactive_panes_grey_scale', .2)
+    enabled    = settings.get('fade_inactive_panes', False)
+    grey_scale = settings.get('fade_inactive_panes_grey_scale', .2)
 
-	def __init__(self):
-		super(Origami, self).__init__()
+    def __init__(self):
+        super(Origami, self).__init__()
 
-		# Register some callbacks
-		def on_settings_change():
-			if settings.get('fade_inactive_panes') != self.enabled \
-					or settings.get('fade_inactive_panes_grey_scale') != self.grey_scale:
+        # Register some callbacks
+        def on_settings_change():
+            if settings.get('fade_inactive_panes') != self.enabled \
+                    or settings.get('fade_inactive_panes_grey_scale') != self.grey_scale:
 
-				print("[Origami] Settings changed!")
+                print("[Origami] Settings changed!")
 
-				# Load new settings
-				disable = self.enabled and self.enabled != settings.get('fade_inactive_panes')
-				self.enabled    = settings.get('fade_inactive_panes')
-				self.grey_scale = settings.get('fade_inactive_panes_grey_scale')
+                # Load new settings
+                disable = self.enabled and self.enabled != settings.get('fade_inactive_panes')
+                self.enabled    = settings.get('fade_inactive_panes')
+                self.grey_scale = settings.get('fade_inactive_panes_grey_scale')
 
-				# Reset panes
-				self.reset(disable)
+                # Reset panes
+                self.reset(disable)
 
-		def add_on_change(setting, callback):
-			settings.clear_on_change(setting)
-			settings.add_on_change(setting, callback)
+        def add_on_change(setting, callback):
+            settings.clear_on_change(setting)
+            settings.add_on_change(setting, callback)
 
-		# I have no clue what the following line should do but it causes issues
-		# add_on_change('origami',                        lambda: self.refresh_views())
-		add_on_change('fade_inactive_panes_grey_scale', on_settings_change)
-		add_on_change('fade_inactive_panes',            on_settings_change)
+        # I have no clue what the following line should do but it causes issues
+        # add_on_change('origami',                        lambda: self.refresh_views())
+        add_on_change('fade_inactive_panes_grey_scale', on_settings_change)
+        add_on_change('fade_inactive_panes',            on_settings_change)
 
-		# Reset all panes, eventually the settings changed
-		self.cycling_reset()
+        # Reset all panes, eventually the settings changed
+        self.cycling_reset()
 
-	def cycling_reset(self):
-		"""Retry accessing the active window until it is available"""
-		w = sublime.active_window()
-		if not w:
-			sublime.set_timeout(lambda: self.cycling_reset, 50)
-		else:
-			self.reset()
+    def cycling_reset(self):
+        """Retry accessing the active window until it is available"""
+        w = sublime.active_window()
+        if not w:
+            sublime.set_timeout(lambda: self.cycling_reset, 50)
+        else:
+            self.reset()
 
+    def reset(self, disable=False):
+        """Delete temporaryly generated dimmed files."""
+        # "Disable" the plugin first (as in, remove all references to dimmed schemes).
+        self.refresh_views(True)
 
-	def reset(self, disable=False):
-		"""Delete temporaryly generated dimmed files."""
-		# "Disable" the plugin first (as in, remove all references to dimmed schemes).
-		self.refresh_views(True)
+        for root, dirs, files in os.walk(module_path):
+            if '.git' in dirs:
+                dirs.remove('.git')  # do not iterate over .git or subdirs
+            for di in dirs:
+                shutil.rmtree(os.path.join(root, di))
 
-		for root, dirs, files in os.walk(module_path):
-			if '.git' in dirs:
-				dirs.remove('.git')  # do not iterate over .git or subdirs
-			for di in dirs:
-				shutil.rmtree(os.path.join(root, di))
+        if not disable:
+            self.refresh_views()
 
-		if not disable:
-			self.refresh_views()
+    def refresh_views(self, disable=False):
+        active_view_id = sublime.active_window().active_view().id()
+        for window in sublime.windows():
+            for v in window.views():
+                if v.settings().get('is_widget'):
+                    continue
+                if disable or v.id() == active_view_id:
+                    self.on_activated(v)
+                else:
+                    self.on_deactivated(v)
 
+    def copy_scheme(self, scheme):
+        packages_path = sublime.packages_path()
+        # Unfortunately, scheme paths start with "Packages/" and
+        # packages_path ends with "Packages/", so we add a .. in the middle
+        # when we combine them.
+        source_abs = os.path.join(packages_path, "..", scheme)
 
-	def refresh_views(self, disable=False):
-		active_view_id = sublime.active_window().active_view().id()
-		for window in sublime.windows():
-			for v in window.views():
-				if v.settings().get('is_widget'):
-					continue
-				if disable or v.id() == active_view_id:
-					self.on_activated(v)
-				else:
-					self.on_deactivated(v)
+        # commonprefix isn't guaranteed to return a complete path, so we
+        # take the dirname to get something real. All that really matters is
+        # that the path points unambiguously to one color scheme, though
+        # we'd prefer for it to be as short as possible.
+        prefix = os.path.dirname(os.path.commonprefix([source_abs, module_path]))
+        source_rel = os.path.relpath(source_abs, prefix)
 
-	def copy_scheme(self, scheme):
-		packages_path = sublime.packages_path()
-		# Unfortunately, scheme paths start with "Packages/" and
-		# packages_path ends with "Packages/", so we add a .. in the middle
-		# when we combine them.
-		source_abs = os.path.join(packages_path, "..", scheme)
+        # Reconstruct the relative path inside of our module directory--we
+        # have something of a shadow copy of the scheme.
+        destination = os.path.join(module_path, source_rel)
+        if (os.path.isfile(destination)):
+            return destination, True
 
-		# commonprefix isn't guaranteed to return a complete path, so we
-		# take the dirname to get something real. All that really matters is
-		# that the path points unambiguously to one color scheme, though
-		# we'd prefer for it to be as short as possible.
-		prefix = os.path.dirname(os.path.commonprefix([source_abs, module_path]))
-		source_rel = os.path.relpath(source_abs, prefix)
+        destdir = os.path.dirname(destination)
+        if not os.path.isdir(destdir):
+            os.makedirs(destdir)
+        shutil.copy(source_abs, destination)
 
-		# Reconstruct the relative path inside of our module directory--we
-		# have something of a shadow copy of the scheme.
-		destination = os.path.join(module_path, source_rel)
-		if (os.path.isfile(destination)):
-			return destination, True
+        return destination, False
 
-		destdir = os.path.dirname(destination)
-		if not os.path.isdir(destdir):
-			os.makedirs(destdir)
-		shutil.copy(source_abs, destination)
+    def dim_scheme(self, scheme):
+        print("[Origami] Generating dimmed color scheme for '%s'" % scheme)
+        print("[Origami] Grey scale: %s" % self.grey_scale)
 
-		return destination, False
+        def dim_hex(hex_val):
+            orig_scale = 1 - self.grey_scale
+            return int(int(hex_val, 16) * orig_scale + 127 * self.grey_scale)
 
-	def dim_scheme(self, scheme):
-		print("[Origami] Generating dimmed color scheme for '%s'" % scheme)
-		print("[Origami] Grey scale: %s" % self.grey_scale)
+        def dim_rgb(rgb_match):
+            hex_str = rgb_match.group()
+            r, g, b = hex_str[1:3], hex_str[3:5], hex_str[5:7]
+            #average toward grey
+            r = dim_hex(r)
+            g = dim_hex(g)
+            b = dim_hex(b)
+            return "#{0:02x}{1:02x}{2:02x}".format(r, g, b)
 
-		def dim_hex(hex_val):
-			orig_scale = 1 - self.grey_scale
-			return int(int(hex_val, 16)*orig_scale + 127*self.grey_scale)
-		def dim_rgb(rgb_match):
-			hex_str = rgb_match.group()
-			r,g,b = hex_str[1:3],hex_str[3:5],hex_str[5:7]
-			#average toward grey
-			r = dim_hex(r)
-			g = dim_hex(g)
-			b = dim_hex(b)
-			return "#{0:02x}{1:02x}{2:02x}".format(r,g,b)
+        f = open(scheme)
+        text = f.read()
+        f.close()
 
-		f = open(scheme)
-		text = f.read()
-		f.close()
+        text = re.sub("#[0-9a-fA-F]{6}", dim_rgb, text)
+        f = open(scheme, 'w')
+        f.write(text)
+        f.close()
 
-		text = re.sub("#[0-9a-fA-F]{6}", dim_rgb, text)
-		f = open(scheme, 'w')
-		f.write(text)
-		f.close()
+    def on_activated(self, view):
+        if view is None or view.settings().get('is_widget'):
+            return
+        default_scheme = view.settings().get('default_scheme', settings.get('color_scheme'))
+        if default_scheme:
+            view.settings().set('color_scheme', default_scheme)
+            view.settings().erase('default_scheme')
+        elif self.enabled:
+            view.settings().erase('color_scheme')
 
-	def on_activated(self, view):
-		if view is None or view.settings().get('is_widget'):
-			return
-		default_scheme = view.settings().get('default_scheme', settings.get('color_scheme'))
-		if default_scheme:
-			view.settings().set('color_scheme', default_scheme)
-			view.settings().erase('default_scheme')
-		elif self.enabled:
-			view.settings().erase('color_scheme')
+    def on_deactivated(self, view):
+        if view is None or view.settings().get('is_widget'):
+            return
 
-	def on_deactivated(self, view):
-		if view is None or view.settings().get('is_widget'):
-			return
+        if not settings.get('fade_inactive_panes', False):
+            return
 
-		if not settings.get('fade_inactive_panes', False):
-			return
+        # Reset to the base color scheme first if there was any
+        self.on_activated(view)
 
-		# Reset to the base color scheme first if there was any
-		self.on_activated(view)
+        active_scheme = view.settings().get('color_scheme')
+        view.settings().erase('color_scheme')
+        default_scheme = view.settings().get('color_scheme')
+        if active_scheme != default_scheme:
+            # Because the settings do not equal after removing the view-depended component
+            # the view's color scheme is expicitly set so save it for later.
+            view.settings().set('default_scheme', active_scheme)
 
-		active_scheme = view.settings().get('color_scheme')
-		view.settings().erase('color_scheme')
-		default_scheme = view.settings().get('color_scheme')
-		if active_scheme != default_scheme:
-			# Because the settings do not equal after removing the view-depended component
-			# the view's color scheme is expicitly set so save it for later.
-			view.settings().set('default_scheme', active_scheme)
+        inactive_scheme, existed_already = self.copy_scheme(active_scheme)
+        if not existed_already:
+            self.dim_scheme(inactive_scheme)
 
-		inactive_scheme, existed_already = self.copy_scheme(active_scheme)
-		if not existed_already:
-			self.dim_scheme(inactive_scheme)
-
-		# Sublime Text 2 only likes relative paths for its color schemes
-		prefix = os.path.dirname(os.path.commonprefix([inactive_scheme, module_path]))
-		inactive_scheme_rel = os.path.relpath(inactive_scheme, prefix)
-		inactive_scheme_rel = os.path.join("Packages", inactive_scheme_rel).replace("\\", "/")
-		view.settings().set('color_scheme', inactive_scheme_rel)
+        # Sublime Text 2 only likes relative paths for its color schemes
+        prefix = os.path.dirname(os.path.commonprefix([inactive_scheme, module_path]))
+        inactive_scheme_rel = os.path.relpath(inactive_scheme, prefix)
+        inactive_scheme_rel = os.path.join("Packages", inactive_scheme_rel).replace("\\", "/")
+        view.settings().set('color_scheme', inactive_scheme_rel)
 
 
 origami = Origami()
 
 
 class InactivePaneCommand(sublime_plugin.EventListener):
-	delay = 150
-	
-	def on_activated(self, view):
-		if view is None or view.settings().get('is_widget'):
-			return
-		sublime.set_timeout(lambda: origami.on_activated(view), self.delay)
+    delay = 150
 
-	def on_deactivated(self, view):
-		if view is None or view.settings().get('is_widget'):
-			return
-		sublime.set_timeout(lambda: origami.on_deactivated(view), self.delay)
+    def on_activated(self, view):
+        if view is None or view.settings().get('is_widget'):
+            return
+        sublime.set_timeout(lambda: origami.on_activated(view), self.delay)
+
+    def on_deactivated(self, view):
+        if view is None or view.settings().get('is_widget'):
+            return
+        sublime.set_timeout(lambda: origami.on_deactivated(view), self.delay)
