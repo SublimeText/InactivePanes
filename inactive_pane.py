@@ -1,17 +1,9 @@
-import sublime
-import sublime_plugin
 import os
 import shutil
 import re
 
-"""
-This plugin creates a greyed-out version of the current color scheme,
-and automatically applies it to views upon deactivation. This allows the
-current pane to look highlighted, but doesn't require any futzing with
-color schemes by the user. It also allows normal selection of a new
-color scheme using Sublime Text 2's menu, though a new view may need to
-be activated for the change to take effect.
-"""
+import sublime
+import sublime_plugin
 
 # We have to record the module path when the file is loaded because
 # Sublime changes it later.
@@ -24,19 +16,19 @@ module_path = os.getcwdu()
 settings = sublime.load_settings('Preferences.sublime-settings')
 
 
-class Origami(object):
+class InactivePanes(object):
     enabled    = settings.get('fade_inactive_panes', False)
     grey_scale = settings.get('fade_inactive_panes_grey_scale', .2)
 
     def __init__(self):
-        super(Origami, self).__init__()
+        super(InactivePanes, self).__init__()
 
         # Register some callbacks
         def on_settings_change():
-            if settings.get('fade_inactive_panes') != self.enabled \
-                    or settings.get('fade_inactive_panes_grey_scale') != self.grey_scale:
+            if (settings.get('fade_inactive_panes', False) != self.enabled
+                    or settings.get('fade_inactive_panes_grey_scale') != self.grey_scale):
 
-                print("[Origami] Settings changed!")
+                print("[InactivePanes] Settings changed!")
 
                 # Load new settings
                 disable = self.enabled and self.enabled != settings.get('fade_inactive_panes')
@@ -50,8 +42,6 @@ class Origami(object):
             settings.clear_on_change(setting)
             settings.add_on_change(setting, callback)
 
-        # I have no clue what the following line should do but it causes issues
-        # add_on_change('origami',                        lambda: self.refresh_views())
         add_on_change('fade_inactive_panes_grey_scale', on_settings_change)
         add_on_change('fade_inactive_panes',            on_settings_change)
 
@@ -86,6 +76,7 @@ class Origami(object):
             for v in window.views():
                 if v.settings().get('is_widget'):
                     continue
+
                 if disable or v.id() == active_view_id:
                     self.on_activated(v)
                 else:
@@ -119,40 +110,38 @@ class Origami(object):
         return destination, False
 
     def dim_scheme(self, scheme):
-        print("[Origami] Generating dimmed color scheme for '%s'" % scheme)
-        print("[Origami] Grey scale: %s" % self.grey_scale)
+        print("[InactivePanes] Generating dimmed color scheme for '%s'" % scheme)
+        print("[InactivePanes] Grey scale: %s" % self.grey_scale)
 
-        def dim_hex(hex_val):
+        def dim_rgb(match):
+            rgb = list(match.groups())
             orig_scale = 1 - self.grey_scale
-            return int(int(hex_val, 16) * orig_scale + 127 * self.grey_scale)
+            # Average toward grey
+            for i, c in enumerate(rgb):
+                rgb[i] = int(int(c, 16) * orig_scale + 127 * self.grey_scale)
 
-        def dim_rgb(rgb_match):
-            hex_str = rgb_match.group()
-            r, g, b = hex_str[1:3], hex_str[3:5], hex_str[5:7]
-            #average toward grey
-            r = dim_hex(r)
-            g = dim_hex(g)
-            b = dim_hex(b)
-            return "#{0:02x}{1:02x}{2:02x}".format(r, g, b)
+            return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
-        f = open(scheme)
-        text = f.read()
-        f.close()
+        with open(scheme) as f:
+            text = f.read()
 
-        text = re.sub("#[0-9a-fA-F]{6}", dim_rgb, text)
-        f = open(scheme, 'w')
-        f.write(text)
-        f.close()
+        text = re.sub("#" + (r"([0-9a-fA-F]{2})" * 3), dim_rgb, text)
+        with open(scheme, 'w') as f:
+            f.write(text)
 
+    # Actual event handlers
     def on_activated(self, view):
-        if view is None or view.settings().get('is_widget'):
+        vsettings = view.settings()
+        if view is None or vsettings.get('is_widget'):
             return
-        default_scheme = view.settings().get('default_scheme', settings.get('color_scheme'))
+        # Get the previous theme of the current view, defaulting to the default setting
+        # (if this was ever to happen).
+        default_scheme = vsettings.get('default_scheme', settings.get('color_scheme'))
         if default_scheme:
-            view.settings().set('color_scheme', default_scheme)
-            view.settings().erase('default_scheme')
+            vsettings.set('color_scheme', default_scheme)
+            vsettings.erase('default_scheme')
         elif self.enabled:
-            view.settings().erase('color_scheme')
+            vsettings.erase('color_scheme')
 
     def on_deactivated(self, view):
         if view is None or view.settings().get('is_widget'):
@@ -168,7 +157,7 @@ class Origami(object):
         view.settings().erase('color_scheme')
         default_scheme = view.settings().get('color_scheme')
         if active_scheme != default_scheme:
-            # Because the settings do not equal after removing the view-depended component
+            # Because the settings do not equal after removing the view-specific setting
             # the view's color scheme is expicitly set so save it for later.
             view.settings().set('default_scheme', active_scheme)
 
@@ -183,7 +172,11 @@ class Origami(object):
         view.settings().set('color_scheme', inactive_scheme_rel)
 
 
-origami = Origami()
+inpanes = InactivePanes()
+
+
+def plugin_unloaded():
+    inpanes.reset(True)
 
 
 class InactivePaneCommand(sublime_plugin.EventListener):
@@ -192,9 +185,9 @@ class InactivePaneCommand(sublime_plugin.EventListener):
     def on_activated(self, view):
         if view is None or view.settings().get('is_widget'):
             return
-        sublime.set_timeout(lambda: origami.on_activated(view), self.delay)
+        sublime.set_timeout(lambda: inpanes.on_activated(view), self.delay)
 
     def on_deactivated(self, view):
         if view is None or view.settings().get('is_widget'):
             return
-        sublime.set_timeout(lambda: origami.on_deactivated(view), self.delay)
+        sublime.set_timeout(lambda: inpanes.on_deactivated(view), self.delay)
