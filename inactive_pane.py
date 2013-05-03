@@ -26,7 +26,7 @@ settings = sublime.load_settings('Preferences.sublime-settings')
 
 class Origami(object):
 	enabled    = settings.get('fade_inactive_panes', False)
-	grey_scale = settings.get('fade_inactive_panes_grey_scale')
+	grey_scale = settings.get('fade_inactive_panes_grey_scale', .2)
 
 	def __init__(self):
 		super(Origami, self).__init__()
@@ -122,11 +122,11 @@ class Origami(object):
 
 	def dim_scheme(self, scheme):
 		print("[Origami] Generating dimmed color scheme for '%s'" % scheme)
+		print("[Origami] Grey scale: %s" % self.grey_scale)
 
 		def dim_hex(hex_val):
-			grey_scale = settings.get('fade_inactive_panes_grey_scale', .2)
-			orig_scale = 1-grey_scale
-			return int(int(hex_val,16)*orig_scale+127*grey_scale)
+			orig_scale = 1 - self.grey_scale
+			return int(int(hex_val, 16)*orig_scale + 127*self.grey_scale)
 		def dim_rgb(rgb_match):
 			hex_str = rgb_match.group()
 			r,g,b = hex_str[1:3],hex_str[3:5],hex_str[5:7]
