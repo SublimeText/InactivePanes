@@ -24,52 +24,65 @@ module_path = os.getcwdu()
 settings = sublime.load_settings('Preferences.sublime-settings')
 
 
-def reset():
-	"""Delete temporaryly generated dimmed files."""
-	for root, dirs, files in os.walk(module_path):
-		if '.git' in dirs:
-			dirs.remove('.git')  # do not iterate over .git or subdirs
-		for di in dirs:
-			shutil.rmtree(os.path.join(root, di))
-
-
-reset()
-
-
 class Origami(object):
 	enabled    = settings.get('fade_inactive_panes', False)
 	grey_scale = settings.get('fade_inactive_panes_grey_scale')
 
 	def __init__(self):
+		super(Origami, self).__init__()
+
 		# Register some callbacks
 		def on_settings_change():
 			if settings.get('fade_inactive_panes') != self.enabled \
 					or settings.get('fade_inactive_panes_grey_scale') != self.grey_scale:
 
-				print("settings changed")
-				# Calling reset() here mostly results in the newly generated files also being deleted,
-				# it should be enough to delete old files when ST starts.
-				# reset()
-				self.refresh_views()
+				print("[Origami] Settings changed!")
 
+				# Load new settings
+				disable = self.enabled and self.enabled != settings.get('fade_inactive_panes')
 				self.enabled    = settings.get('fade_inactive_panes')
 				self.grey_scale = settings.get('fade_inactive_panes_grey_scale')
 
-
-			print("settings did not change")
+				# Reset panes
+				self.reset(disable)
 
 		def add_on_change(setting, callback):
 			settings.clear_on_change(setting)
 			settings.add_on_change(setting, callback)
 
-		add_on_change('origami',                        lambda: self.refresh_views())
+		# I have no clue what the following line should do but it causes issues
+		# add_on_change('origami',                        lambda: self.refresh_views())
 		add_on_change('fade_inactive_panes_grey_scale', on_settings_change)
 		add_on_change('fade_inactive_panes',            on_settings_change)
 
-		super(Origami, self).__init__()
+		# Reset all panes, eventually the settings changed
+		self.cycling_reset()
+
+	def cycling_reset(self):
+		"""Retry accessing the active window until it is available"""
+		w = sublime.active_window()
+		if not w:
+			sublime.set_timeout(lambda: self.cycling_reset, 50)
+		else:
+			self.reset()
+
+
+	def reset(self, disable=False):
+		"""Delete temporaryly generated dimmed files."""
+		# "Disable" the plugin first (as in, remove all references to dimmed schemes).
+		self.refresh_views(True)
+
+		for root, dirs, files in os.walk(module_path):
+			if '.git' in dirs:
+				dirs.remove('.git')  # do not iterate over .git or subdirs
+			for di in dirs:
+				shutil.rmtree(os.path.join(root, di))
+
+		if not disable:
+			self.refresh_views()
+
 
 	def refresh_views(self, disable=False):
-		disable = disable or (self.enabled and self.enabled != settings.get('fade_inactive_panes'))
 		active_view_id = sublime.active_window().active_view().id()
 		for window in sublime.windows():
 			for v in window.views():
