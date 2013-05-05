@@ -90,7 +90,7 @@ class InactivePanes(object):
     def init(self):
         self._settings = Settings(
             sublime.load_settings('Preferences.sublime-settings'),
-            dict(grey_scale=('fade_inactive_panes_grey_scale', .2)),
+            dict(gray_scale=('fade_inactive_panes_gray_scale', .2)),
             self.cycling_reset
         )
 
@@ -194,15 +194,15 @@ class InactivePanes(object):
         return "Packages/%s/%s" % (module_name, source_rel.replace("\\", "/"))
 
     def dim_scheme(self, scheme):
-        grey_scale = self._settings.grey_scale
-        print("[%s] Grey scale: %s" % (module_name, grey_scale))
+        gray_scale = self._settings.gray_scale
+        print("[%s] Gray scale: %s" % (module_name, gray_scale))
 
         def dim_rgb(match):
             rgb = list(match.groups())
-            orig_scale = 1 - grey_scale
-            # Average toward grey
+            orig_scale = 1 - gray_scale
+            # Average toward gray
             for i, c in enumerate(rgb):
-                rgb[i] = int(int(c, 16) * orig_scale + 127 * grey_scale)
+                rgb[i] = int(int(c, 16) * orig_scale + 127 * gray_scale)
 
             return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
