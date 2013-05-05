@@ -8,60 +8,103 @@ import sublime_plugin
 ST2 = int(sublime.version()) < 3000
 
 # We have to record the module path when the file is loaded because
-# Sublime Text changes it later.
+# Sublime Text changes it later (on ST2).
 module_path = os.getcwdu() if ST2 else os.path.dirname(__file__)
 module_name = os.path.split(module_path)[1]
 
 
-# Using this convenience function since `sublime.load_settings` will cached anyway.
-def Prefs():
-    return sublime.load_settings('Preferences.sublime-settings')
+class Settings(object):
+    """Provides various helping functions for wrapping the sublime settings objects.
+
+    `settings` should be provided as a dict of tuples and attribute names should not be one of the
+    existing functions. And of course they should be valid attribute names.
+
+    Example constructor:
+    Settings(
+        sublime.load_settings("Preferences.sublime-settings"),
+        dict(
+            attribute_name_to_save_as=('settings_key_to_read_from', 'default_value')
+            #, ...
+        ),
+        settings_changed  # optional
+    )
+
+    `settings_changed` will be called when the registered settings changed and this time for real.
+    Sublime Text currently behaves weird with `add_on_change` calls and the callback is run more
+    often than it should be (as in, the specified setting didn't actually change), this wrapper
+    however tests if one of the values has changed and then calls the callback.
+
+    Methods:
+        * update() - Reads all the settings and saves them in their respective attributes.
+        * has_changed() - Returns a boolean if the currently cached settings differ.
+        * register(callback) - runs `add_on_change` for all settings.
+        * unregister() - See above, `clear_on_change`.
+    """
+    _sobj = None
+    _settings = None
+    _callback = None
+
+    def __init__(self, settings_obj, settings, callback=None):
+        self._sobj = settings_obj
+        self._settings = settings
+        self._callback = callback
+
+        self.update()
+        if self._callback:
+            self.register(self._on_change)
+
+    def update(self):
+        for attr, (name, value) in self._settings.items():
+            setattr(self, attr, self._sobj.get(name, value))
+
+    def _on_change(self):
+        # Only trigger if relevant settings changed
+        if self.has_changed():
+            self._callback()
+
+    def has_changed(self):
+        for attr, (name, value) in self._settings.items():
+            if getattr(self, attr) != self._sobj.get(name, value):
+                return True
+
+        return False
+
+    def register(self, callback):
+        for name, _ in self._settings.values():
+            self._sobj.add_on_change(name, callback)
+
+    def unregister(self):
+        for name, _ in self._settings.values():
+            self._sobj.clear_on_change(name)
 
 
 class InactivePanes(object):
     """A dummy class which holds this plugin's methods.
     Maybe I can think of a better way to structure plugins like these but for now this'll do it
     """
+    _settings  = None
+
     def init(self):
-        self.enabled    = Prefs().get('fade_inactive_panes', False)
-        self.grey_scale = Prefs().get('fade_inactive_panes_grey_scale', .2)
-        # Register some callbacks
+        self._settings = Settings(
+            sublime.load_settings('Preferences.sublime-settings'),
+            dict(grey_scale=('fade_inactive_panes_grey_scale', .2)),
+            self.cycling_reset
+        )
 
-        def add_on_change(setting, callback):
-            Prefs().clear_on_change(setting)
-            Prefs().add_on_change(setting, callback)
-
-        add_on_change('fade_inactive_panes_grey_scale', self.on_settings_change)
-        add_on_change('fade_inactive_panes',            self.on_settings_change)
-
-        # Reset all panes, eventually the settings changed
+        # Boot up
         self.cycling_reset()
 
     def deinit(self):
-        Prefs().clear_on_change('fade_inactive_panes_grey_scale')
-        Prefs().clear_on_change('fade_inactive_panes')
+        self._settings.unregister()
+        self.reset(True)
 
-    def on_settings_change(self):
-        if (Prefs().get('fade_inactive_panes', False) != self.enabled
-                or Prefs().get('fade_inactive_panes_grey_scale', .2) != self.grey_scale):
-
-            print("[InactivePanes] Settings changed!")
-
-            # Load new settings
-            disable = self.enabled and self.enabled != Prefs().get('fade_inactive_panes', False)
-            self.enabled    = Prefs().get('fade_inactive_panes', False)
-            self.grey_scale = Prefs().get('fade_inactive_panes_grey_scale', .2)
-
-            # Reset panes
-            self.reset(disable)
-
-    def cycling_reset(self):
+    def cycling_reset(self, disable=False):
         """Retry accessing the active window until it is available
         """
         if not sublime.active_window():
             sublime.set_timeout(lambda: self.cycling_reset, 50)
         else:
-            self.reset()
+            self.reset(disable)
 
     def reset(self, disable=False):
         """Delete temporaryly generated dimmed files.
@@ -69,12 +112,18 @@ class InactivePanes(object):
         # "Disable" the plugin first (as in, remove all references to dimmed schemes).
         self.refresh_views(True)
 
+        def onerror(function, path, excinfo):
+            sublime.error_message("Warning!\n"
+                                  "Could not remove '%s'\n\n"
+                                  "Error with function '%s': %s"
+                                  % (path, function, excinfo))
+
         # Delete all subdirs of this module.
         for root, dirs, files in os.walk(module_path):
             if '.git' in dirs:
                 dirs.remove('.git')  # do not iterate over .git or subdirs
             for di in dirs:
-                shutil.rmtree(os.path.join(root, di))
+                shutil.rmtree(os.path.join(root, di), onerror=onerror)
 
         if not disable:
             self.refresh_views()
@@ -89,6 +138,7 @@ class InactivePanes(object):
                 if disable or v.id() == active_view_id:
                     self.on_activated(v)
                 else:
+                    print("startup reset:")
                     self.on_deactivated(v)
 
     def create_inactive_scheme(self, scheme):
@@ -116,7 +166,15 @@ class InactivePanes(object):
         if not os.path.isfile(dest):
             destdir = os.path.dirname(dest)
             if not os.path.isdir(destdir):
-                os.makedirs(destdir)
+                try:
+                    os.makedirs(destdir)
+                except OSError as e:
+                    sublime.error_message("Warning!\n"
+                                          "Could not create folder '%s'.\n"
+                                          "This means that this plugin will not work.\n\n"
+                                          "Error: %s"
+                                          % (destdir, e))
+                    raise  # re raise to make sure that this plugin will not be executed further
 
             if ST2:
                 shutil.copy(source_abs, dest)
@@ -125,21 +183,22 @@ class InactivePanes(object):
                 with open(dest, 'w') as f:
                     f.write(sublime.load_resource(scheme))
 
+            print("[%s] Generating dimmed color scheme for '%s'" % (module_name, scheme))
             self.dim_scheme(dest)
 
-        # Sublime Text only likes relative paths for its color schemes.
-        return os.path.join("Packages", module_name, source_rel).replace("\\", "/")
+        # Sublime Text only likes relative paths for its color schemes, with "/".
+        return "Packages/%s/%s" % (module_name, source_rel.replace("\\", "/"))
 
     def dim_scheme(self, scheme):
-        print("[InactivePanes] Generating dimmed color scheme for '%s'" % scheme)
-        print("[InactivePanes] Grey scale: %s" % self.grey_scale)
+        grey_scale = self._settings.grey_scale
+        print("[%s] Grey scale: %s" % (module_name, grey_scale))
 
         def dim_rgb(match):
             rgb = list(match.groups())
-            orig_scale = 1 - self.grey_scale
+            orig_scale = 1 - grey_scale
             # Average toward grey
             for i, c in enumerate(rgb):
-                rgb[i] = int(int(c, 16) * orig_scale + 127 * self.grey_scale)
+                rgb[i] = int(int(c, 16) * orig_scale + 127 * grey_scale)
 
             return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
@@ -153,41 +212,42 @@ class InactivePanes(object):
     # The actual event handlers
     def on_activated(self, view):
         vsettings = view.settings()
-        if view is None or vsettings.get('is_widget'):
-            return
-        # Get the previous theme of the current view, defaulting to the default setting
-        # (if this was ever to happen).
-        default_scheme = vsettings.get('default_scheme', Prefs().get('color_scheme'))
+
+        # Get the previous scheme of the current view (if it existed).
+        default_scheme = vsettings.get('default_scheme')
+
+        if not view.file_name():
+            print(vsettings.get('is_widget'), view.is_loading())
         if default_scheme:
             vsettings.set('color_scheme', default_scheme)
             vsettings.erase('default_scheme')
-        elif self.enabled:
+        else:
+            # Otherwise just erease our user-scheme
             vsettings.erase('color_scheme')
 
     def on_deactivated(self, view):
-        if view is None or view.settings().get('is_widget'):
-            return
-
-        if not Prefs().get('fade_inactive_panes', False):
-            return
+        vsettings = view.settings()
 
         # Reset to the base color scheme first if there was any
-        # (I don't know anymore why this is necessary).
-        self.on_activated(view)
+        # (in case ST was restarted).
+        if module_name in vsettings.get('color_scheme'):
+            self.on_activated(view)
+
+        print("deactivating", view.file_name(), view.is_loading())
 
         # Note: all "scheme" paths here are relative
-        active_scheme = view.settings().get('color_scheme')
-        view.settings().erase('color_scheme')
-        default_scheme = view.settings().get('color_scheme')
+        active_scheme = vsettings.get('color_scheme')
+        vsettings.erase('color_scheme')
+        default_scheme = vsettings.get('color_scheme')
         if active_scheme != default_scheme:
-            # Because the settings do not equal after removing the view-specific setting
-            # the view's color scheme is expicitly set so save it for later.
-            view.settings().set('default_scheme', active_scheme)
+            # Because the settings do not equal after removing the view-specific setting the view's
+            # color scheme is expicitly set so save it for later.
+            vsettings.set('default_scheme', active_scheme)
 
         # Potentially copy and dim the scheme
         inactive_scheme = self.create_inactive_scheme(active_scheme)
 
-        view.settings().set('color_scheme', inactive_scheme)
+        vsettings.set('color_scheme', inactive_scheme)
 
 
 # Use this local instance for all the references
@@ -214,9 +274,8 @@ def plugin_loaded():
 
 
 def plugin_unloaded():
-    print("unloading")
-    inpanes.reset(True)
-    print("unloaded")
+    print("[%s] Deactivating..." % module_name)
+    inpanes.deinit()
 
 # ST2 backwards (and don't call it twice in ST3)
 unload_handler = plugin_unloaded if ST2 else lambda: None
