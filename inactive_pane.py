@@ -26,13 +26,14 @@ class Settings(object):
             attribute_name_to_save_as=('settings_key_to_read_from', 'default_value')
             #, ...
         ),
-        settings_changed  # optional
+        settings_changed  # optional, callback
     )
 
-    `settings_changed` will be called when the registered settings changed and this time for real.
+    `settings_changed` will be called when the registered settings changed, and this time for real.
     Sublime Text currently behaves weird with `add_on_change` calls and the callback is run more
     often than it should be (as in, the specified setting didn't actually change), this wrapper
     however tests if one of the values has changed and then calls the callback.
+    `update()` is called before the callback.
 
     Methods:
         * update() - Reads all the settings and saves them in their respective attributes.
@@ -60,6 +61,7 @@ class Settings(object):
     def _on_change(self):
         # Only trigger if relevant settings changed
         if self.has_changed():
+            self.update()
             self._callback()
 
     def has_changed(self):
@@ -141,7 +143,6 @@ class InactivePanes(object):
                 if disable or v.id() == active_view_id:
                     self.on_activated(v)
                 else:
-                    print("startup reset:")
                     self.on_deactivated(v)
 
     def create_inactive_scheme(self, scheme):
@@ -219,7 +220,7 @@ class InactivePanes(object):
             # views that are passed sometimes.
             return
         if not view.file_name() and not view.is_scratch() and not view.is_dirty():
-            print("[%s] What do we have here? A new and empty buffer?")
+            print("[%s] What do we have here? A new and empty buffer?" % module_name)
 
         vsettings = view.settings()
 
@@ -242,8 +243,6 @@ class InactivePanes(object):
         # (in case ST was restarted).
         if module_name in vsettings.get('color_scheme'):
             self.on_activated(view)
-
-        print("deactivating", view.file_name(), view.is_loading())
 
         # Note: all "scheme" paths here are relative
         active_scheme = vsettings.get('color_scheme')
