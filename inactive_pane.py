@@ -83,6 +83,7 @@ class InactivePanes(object):
     Maybe I can think of a better way to structure plugins like these but for now this'll do it
     """
     _settings  = None
+    _refreshed = False
 
     def init(self):
         self._settings = Settings(
@@ -129,6 +130,8 @@ class InactivePanes(object):
             self.refresh_views()
 
     def refresh_views(self, disable=False):
+        # We need this because ST for some reason calls on_activated with void views on startup
+        self._refreshed = True
         active_view_id = sublime.active_window().active_view().id()
         for window in sublime.windows():
             for v in window.views():
@@ -211,6 +214,13 @@ class InactivePanes(object):
 
     # The actual event handlers
     def on_activated(self, view):
+        if not self._refreshed:
+            # No business here, we wait for the plugin to refresh in order to ignore ST2's dummy
+            # views that are passed sometimes.
+            return
+        if not view.file_name() and not view.is_scratch() and not view.is_dirty():
+            print("[%s] What do we have here? A new and empty buffer?")
+
         vsettings = view.settings()
 
         # Get the previous scheme of the current view (if it existed).
