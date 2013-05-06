@@ -61,6 +61,7 @@ class Settings(object):
     def _on_change(self):
         # Only trigger if relevant settings changed
         if self.has_changed():
+            print("changed!")
             self.update()
             self._callback()
 
@@ -90,7 +91,11 @@ class InactivePanes(object):
     def init(self):
         self._settings = Settings(
             sublime.load_settings('Preferences.sublime-settings'),
-            dict(gray_scale=('fade_inactive_panes_gray_scale', .2)),
+            dict(
+                gray_scale=('fade_inactive_panes_gray_scale', .2),
+                # Including this to regenerate the color scheme immediately afterwards
+                _color_scheme=('color_scheme', None)
+            ),
             self.cycling_reset
         )
 
@@ -215,10 +220,6 @@ class InactivePanes(object):
 
     # The actual event handlers
     def on_activated(self, view):
-        if not self._refreshed:
-            # No business here, we wait for the plugin to refresh in order to ignore ST2's dummy
-            # views that are passed sometimes.
-            return
         if not view.file_name() and not view.is_scratch() and not view.is_dirty():
             print("[%s] What do we have here? A new and empty buffer?" % module_name)
 
@@ -227,8 +228,6 @@ class InactivePanes(object):
         # Get the previous scheme of the current view (if it existed).
         default_scheme = vsettings.get('default_scheme')
 
-        if not view.file_name():
-            print(vsettings.get('is_widget'), view.is_loading())
         if default_scheme:
             vsettings.set('color_scheme', default_scheme)
             vsettings.erase('default_scheme')
@@ -237,6 +236,11 @@ class InactivePanes(object):
             vsettings.erase('color_scheme')
 
     def on_deactivated(self, view):
+        if not self._refreshed:
+            # No business here, we wait for the plugin to refresh in order to ignore ST2's dummy
+            # views that are passed sometimes.
+            return
+
         vsettings = view.settings()
 
         # Reset to the base color scheme first if there was any
@@ -275,6 +279,18 @@ class InactivePaneCommand(sublime_plugin.EventListener):
         if view is None or view.settings().get('is_widget'):
             return
         sublime.set_timeout(lambda: inpanes.on_deactivated(view), self.delay)
+
+
+# I don't use this currently but maybe it will come in hand when debugging other's issues
+class ColorSchemeEmergencyResetCommand(sublime_plugin.ApplicationCommand):
+    def run(self):
+        for window in sublime.windows():
+            for view in window.views():
+                vsettings = view.settings()
+                vsettings.erase('color_scheme')
+                vsettings.erase('default_scheme')
+
+        print("All color schemes have been reset to your settings")
 
 
 def plugin_loaded():
