@@ -1,6 +1,12 @@
 File History Changelog
 ======================
 
+v0.2.1 (2013-05-06)
+-------------------
+
+- Really fix (hopefully) all errors
+- Do not error when changing color schemes (and update all views accordingly)
+
 v0.2.0 (2013-05-06)
 -------------------
 
