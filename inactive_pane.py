@@ -257,10 +257,16 @@ class InactivePanes(object):
             # color scheme is expicitly set so save it for later.
             vsettings.set('default_scheme', active_scheme)
 
-        # Potentially copy and dim the scheme
-        inactive_scheme = self.create_inactive_scheme(active_scheme)
+        if self._view_on_top(view):
+            # Potentially copy and dim the scheme
+            inactive_scheme = self.create_inactive_scheme(active_scheme)
+            vsettings.set('color_scheme', inactive_scheme)
 
-        vsettings.set('color_scheme', inactive_scheme)
+    def _view_on_top(self, view):
+        win = view.window()
+        group, index = win.get_view_index(view)
+        active_view = win.active_view_in_group(group)
+        return active_view.buffer_id() == view.buffer_id()
 
 
 # Use this local instance for all the references
