@@ -236,6 +236,9 @@ class InactivePanes(object):
             vsettings.erase('color_scheme')
 
     def on_deactivated(self, view):
+        if not view.buffer_id():
+            return  # view was closed
+
         if not self._refreshed:
             # No business here, we wait for the plugin to refresh in order to ignore ST2's dummy
             # views that are passed sometimes.
