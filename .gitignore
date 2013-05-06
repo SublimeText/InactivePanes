@@ -1,6 +1,7 @@
 *.pyc
 *.cache
 *.tmTheme
+*.hidden-tmTheme
 *.sublime-project
 *.sublime-workspace
 package-metadata.json
