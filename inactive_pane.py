@@ -26,7 +26,7 @@ class Settings(object):
             attribute_name_to_save_as=('settings_key_to_read_from', 'default_value')
             #, ...
         ),
-        settings_changed  # optional, callback
+        on_settings_changed  # optional, callback
     )
 
     `settings_changed` will be called when the registered settings changed, and this time for real.
@@ -51,23 +51,22 @@ class Settings(object):
         self._callback = callback
 
         self.update()
-        if self._callback:
+        if callable(self._callback):
             self.register(self._on_change)
 
     def update(self):
-        for attr, (name, value) in self._settings.items():
-            setattr(self, attr, self._sobj.get(name, value))
+        for attr, (name, def_value) in self._settings.items():
+            setattr(self, attr, self._sobj.get(name, def_value))
 
     def _on_change(self):
         # Only trigger if relevant settings changed
         if self.has_changed():
-            print("changed!")
             self.update()
             self._callback()
 
     def has_changed(self):
-        for attr, (name, value) in self._settings.items():
-            if getattr(self, attr) != self._sobj.get(name, value):
+        for attr, (name, def_value) in self._settings.items():
+            if getattr(self, attr) != self._sobj.get(name, def_value):
                 return True
 
         return False
@@ -88,15 +87,17 @@ class InactivePanes(object):
     _settings  = None
     _refreshed = False
 
+    ### Custom init and deinit
+
     def init(self):
         self._settings = Settings(
             sublime.load_settings('Preferences.sublime-settings'),
-            dict(
+            settings=dict(
                 gray_scale=('fade_inactive_panes_gray_scale', .2),
-                # Including this to regenerate the color scheme immediately afterwards
+                # Including this in order to get a notification when the scheme has changed
                 _color_scheme=('color_scheme', None)
             ),
-            self.cycling_reset
+            callback=self.cycling_reset
         )
 
         # Boot up
@@ -106,11 +107,13 @@ class InactivePanes(object):
         self._settings.unregister()
         self.reset(True)
 
+    ### Utitily functions
+
     def cycling_reset(self, disable=False):
         """Retry accessing the active window until it is available
         """
         if not sublime.active_window():
-            sublime.set_timeout(lambda: self.cycling_reset, 50)
+            sublime.set_timeout(self.cycling_reset, 50)
         else:
             self.reset(disable)
 
@@ -187,6 +190,7 @@ class InactivePanes(object):
                                           % (destdir, e))
                     raise  # re raise to make sure that this plugin will not be executed further
 
+            # TODO: no need to copy the file if we're overwriting it anyway
             if ST2:
                 shutil.copy(source_abs, dest)
             else:
@@ -220,10 +224,20 @@ class InactivePanes(object):
         with open(scheme, 'w') as f:
             f.write(text)
 
-    # The actual event handlers
+    ### The actual event handlers
+
     def on_activated(self, view):
-        if not view.file_name() and not view.is_scratch() and not view.is_dirty():
-            print("[%s] What do we have here? A new and empty buffer?" % module_name)
+        if not self._refreshed:
+            return
+
+        if (
+            view is None
+            or not (view.settings().get('is_widget')
+                    or view.file_name()
+                    or view.is_scratch()
+                    or view.is_dirty())
+        ):
+            print("[%s] Void view?" % module_name)
 
         vsettings = view.settings()
 
@@ -238,12 +252,17 @@ class InactivePanes(object):
             vsettings.erase('color_scheme')
 
     def on_deactivated(self, view, window=None):
-        if not view.buffer_id():
-            return  # view was closed
-
-        if not self._refreshed:
+        if (
+            # Invalid argument
+            view is None
+            # We have a widget here, not of interest
+            or view.settings().get('is_widget')
+            # view was closed
+            or not view.buffer_id()
             # No business here, we wait for the plugin to refresh in order to ignore ST2's dummy
             # views that are passed sometimes.
+            or not self._refreshed
+        ):
             return
 
         vsettings = view.settings()
@@ -305,7 +324,7 @@ class ColorSchemeEmergencyResetCommand(sublime_plugin.ApplicationCommand):
                 vsettings.erase('color_scheme')
                 vsettings.erase('default_scheme')
 
-        print("All color schemes have been reset to your settings")
+        print("All color schemes have been reset")
 
 
 def plugin_loaded():
