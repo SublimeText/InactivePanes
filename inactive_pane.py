@@ -232,7 +232,7 @@ class InactivePanes(object):
                 shutil.copy(source_abs, dest_abs)
             else:
                 # ST3 does not unzip .sublime-packages, thus the "load_resource" API will be used.
-                with open(dest_abs, 'w') as f:
+                with open(dest_abs, 'w', encoding='utf-8') as f:
                     f.write(sublime.load_resource(source_rel))
 
             print("[%s] Generating dimmed color scheme for '%s'" % (module_name, source_rel))
