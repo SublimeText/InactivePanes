@@ -36,10 +36,17 @@ class Settings(object):
     `update()` is called before the callback.
 
     Methods:
-        * update() - Reads all the settings and saves them in their respective attributes.
-        * has_changed() - Returns a boolean if the currently cached settings differ.
-        * register(callback) - runs `add_on_change` for all settings.
-        * unregister() - See above, `clear_on_change`.
+        * update()
+            Reads all the settings and saves them in their respective attributes.
+        * has_changed()
+            Returns a boolean if the currently cached settings differ.
+        * register(callback)
+            Runs `add_on_change` for all settings defined with `callback` param
+        * unregister()
+            See above, `clear_on_change`.
+        * get_state()
+            Returns a dict with the tracked settings as keys and their values (not the attribute
+            names). With the above example: `{"settings_key_to_read_from": 'current_value'}`.
     """
     _sobj = None
     _settings = None
@@ -78,6 +85,10 @@ class Settings(object):
     def unregister(self):
         for name, _ in self._settings.values():
             self._sobj.clear_on_change(name)
+
+    def get_state(self):
+        return dict((name, self._sobj.get(name, def_value))
+                    for name, def_value in self._settings.values())
 
 
 class InactivePanes(object):
