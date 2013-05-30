@@ -1,6 +1,13 @@
 File History Changelog
 ======================
 
+v0.2.2 (2013-05-30)
+-------------------
+
+- Only dim inactive views when they are actually visible (on top of a group)
+- Remove the delay when changing focus
+- Fix even more errors
+
 v0.2.1 (2013-05-06)
 -------------------
 
