@@ -7,10 +7,30 @@ import sublime_plugin
 
 ST2 = int(sublime.version()) < 3000
 
+
 # We have to record the module path when the file is loaded because
 # Sublime Text changes it later (on ST2).
-module_path = os.getcwdu() if ST2 else os.path.dirname(__file__)
+def get_module_path():
+    if ST2:
+        return os.getcwdu(), False
+
+    dir_name = os.path.dirname(__file__)
+    # Check if we are in a .sublime-package and normalize the path
+    if dir_name.endswith(".sublime-package"):
+        return (re.sub(r"(?:Installed )?Packages([\\/][^\\/]+)\.sublime-package$",
+                       r"Packages\1", dir_name),
+                True)
+    else:
+        return dir_name, False
+
+module_path, installed = get_module_path()
 module_name = os.path.split(module_path)[1]
+
+# In ST3 we need to copy the color schemes in a different dir because creating a folder with the
+# same name as this package will cause ST to fail importing this plugin.
+# See: http://www.sublimetext.com/forum/viewtopic.php?f=3&t=12564
+target_module_path = module_path + ("_" if installed else "")
+target_module_name = os.path.split(target_module_path)[1]
 
 
 class Settings(object):
@@ -141,7 +161,7 @@ class InactivePanes(object):
                                   % (path, function, excinfo))
 
         # Delete all subdirs of this module.
-        for root, dirs, files in os.walk(module_path):
+        for root, dirs, files in os.walk(target_module_path):
             if '.git' in dirs:
                 dirs.remove('.git')  # do not iterate over .git or subdirs
             for di in dirs:
@@ -151,7 +171,7 @@ class InactivePanes(object):
             self.refresh_views()
 
     def refresh_views(self, disable=False):
-        # We need this because ST for some reason calls on_activated with void views on startup
+        # We need this because ST for some reason calls "on_activated" with void views on startup.
         self._refreshed = True
 
         active_view_id = sublime.active_window().active_view().id()
@@ -166,30 +186,36 @@ class InactivePanes(object):
                     # Need to pass the window because `view.window()` is apparently `None` here ...
                     self.on_deactivated(v, w)
 
-    def create_inactive_scheme(self, scheme):
+    def create_inactive_scheme(self, source_rel):
         """This is where the fun begins.
         """
-        # Unfortunately, scheme paths start with "Packages/" and packages_path ends with
-        # "Packages/", so we add a .. in the middle when we combine them.
-        # TOCHECK: do absolute paths work?
-        source_abs = os.path.normpath(os.path.join(sublime.packages_path(), "..", scheme))
+        # Assume scheme paths always look like this "Packages/.../*.tmTheme" (which means the root
+        # is the Data directory), because nothing else seems to work.
+        prefix = "Packages/"
+        if not source_rel.startswith(prefix):
+            # However, if this is not true ...
+            sublime.message_dialog(
+                "Warning!\n"
+                "Your setup seems to use an unrecognized color scheme setting which %s does not "
+                "take care of. Please create an issue at this package's repository or a post in "
+                "the forum and mention your color_scheme path: '%s'."
+                % (module_name, source_rel)
+            )
+            return
 
-        # `commonprefix()` isn't guaranteed to return a complete path, so we take the dirname to
-        # get something real. All that really matters is that the path points unambiguously to one
-        # color scheme, though we'd prefer for it to be as short as possible.
-        #
-        # TOCHECK: "Package/Inactive..." as path for scheme
-        prefix = os.path.dirname(os.path.commonprefix([source_abs, module_path]))
-        # `prefix` will most likely be the packages path.
-        source_rel = os.path.relpath(source_abs, prefix)
+        # Very unlikely to change but "packages_path" is not available at module load time.
+        data_path = os.path.normpath(os.path.join(sublime.packages_path(), ".."))
 
-        # Reconstruct the relative path inside of our module directory--we
-        # have something of a shadow copy of the scheme.
-        dest = os.path.join(module_path, source_rel)
+        # Some path math~
+        source_abs = os.path.join(data_path, *source_rel.split("/"))
+        # Reconstruct the relative path inside of our module directory; we have something of a
+        # shadow copy of the scheme.
+        dest_rel = prefix + "%s/%s" % (target_module_name, source_rel[len(prefix):])
+        dest_abs = os.path.join(data_path, *dest_rel.split("/"))
 
         # Copy and dim the scheme if it does not exist
-        if not os.path.isfile(dest):
-            destdir = os.path.dirname(dest)
+        if not os.path.isfile(dest_abs):
+            destdir = os.path.dirname(dest_abs)
             if not os.path.isdir(destdir):
                 try:
                     os.makedirs(destdir)
@@ -199,21 +225,20 @@ class InactivePanes(object):
                                           "This means that this plugin will not work.\n\n"
                                           "Error: %s"
                                           % (destdir, e))
-                    raise  # re raise to make sure that this plugin will not be executed further
+                    raise  # re-raise to make sure that this plugin will not be executed further
 
             # TODO: no need to copy the file if we're overwriting it anyway
             if ST2:
-                shutil.copy(source_abs, dest)
+                shutil.copy(source_abs, dest_abs)
             else:
-                # ST3 does not unzip .sublime-packages, thus the `load_resource` API will be used.
-                with open(dest, 'w') as f:
-                    f.write(sublime.load_resource(scheme))
+                # ST3 does not unzip .sublime-packages, thus the "load_resource" API will be used.
+                with open(dest_abs, 'w') as f:
+                    f.write(sublime.load_resource(source_rel))
 
-            print("[%s] Generating dimmed color scheme for '%s'" % (module_name, scheme))
-            self.dim_scheme(dest)
+            print("[%s] Generating dimmed color scheme for '%s'" % (module_name, source_rel))
+            self.dim_scheme(dest_abs)
 
-        # Sublime Text only likes relative paths for its color schemes, with "/".
-        return "Packages/%s/%s" % (module_name, source_rel.replace("\\", "/"))
+        return dest_rel
 
     def dim_scheme(self, scheme):
         gray_scale = self._settings.gray_scale
@@ -280,7 +305,7 @@ class InactivePanes(object):
 
         # Reset to the base color scheme first if there was any
         # (in case ST was restarted).
-        if module_name in vsettings.get('color_scheme'):
+        if target_module_name in vsettings.get('color_scheme'):
             self.on_activated(view)
 
         # Don't bother any more if the current view is not on top
@@ -298,7 +323,8 @@ class InactivePanes(object):
 
         # Potentially copy and dim the scheme
         inactive_scheme = self.create_inactive_scheme(active_scheme)
-        vsettings.set('color_scheme', inactive_scheme)
+        if inactive_scheme:
+            vsettings.set('color_scheme', inactive_scheme)
 
     def _view_on_top(self, view, window=None):
         win = window or view.window()
