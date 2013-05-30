@@ -277,17 +277,11 @@ inpanes = InactivePanes()
 
 
 class InactivePaneCommand(sublime_plugin.EventListener):
-    delay = 150
-
     def on_activated(self, view):
-        if view is None or view.settings().get('is_widget'):
-            return
-        sublime.set_timeout(lambda: inpanes.on_activated(view), self.delay)
+        inpanes.on_activated(view)
 
     def on_deactivated(self, view):
-        if view is None or view.settings().get('is_widget'):
-            return
-        sublime.set_timeout(lambda: inpanes.on_deactivated(view), self.delay)
+        inpanes.on_deactivated(view)
 
 
 # I don't use this currently but maybe it will come in hand when debugging other's issues
