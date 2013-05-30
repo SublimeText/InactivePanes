@@ -139,16 +139,18 @@ class InactivePanes(object):
     def refresh_views(self, disable=False):
         # We need this because ST for some reason calls on_activated with void views on startup
         self._refreshed = True
+
         active_view_id = sublime.active_window().active_view().id()
-        for window in sublime.windows():
-            for v in window.views():
+        for w in sublime.windows():
+            for v in w.views():
                 if v.settings().get('is_widget'):
                     continue
 
                 if disable or v.id() == active_view_id:
                     self.on_activated(v)
                 else:
-                    self.on_deactivated(v)
+                    # Need to pass the window because `view.window()` is apparently `None` here ...
+                    self.on_deactivated(v, w)
 
     def create_inactive_scheme(self, scheme):
         """This is where the fun begins.
@@ -235,7 +237,7 @@ class InactivePanes(object):
             # Otherwise just erease our user-scheme
             vsettings.erase('color_scheme')
 
-    def on_deactivated(self, view):
+    def on_deactivated(self, view, window=None):
         if not view.buffer_id():
             return  # view was closed
 
@@ -251,6 +253,10 @@ class InactivePanes(object):
         if module_name in vsettings.get('color_scheme'):
             self.on_activated(view)
 
+        # Don't bother any more if the current view is not on top
+        if not self._view_on_top(view, window):
+            return
+
         # Note: all "scheme" paths here are relative
         active_scheme = vsettings.get('color_scheme')
         vsettings.erase('color_scheme')
@@ -260,15 +266,21 @@ class InactivePanes(object):
             # color scheme is expicitly set so save it for later.
             vsettings.set('default_scheme', active_scheme)
 
-        if self._view_on_top(view):
-            # Potentially copy and dim the scheme
-            inactive_scheme = self.create_inactive_scheme(active_scheme)
-            vsettings.set('color_scheme', inactive_scheme)
+        # Potentially copy and dim the scheme
+        inactive_scheme = self.create_inactive_scheme(active_scheme)
+        vsettings.set('color_scheme', inactive_scheme)
 
-    def _view_on_top(self, view):
-        win = view.window()
+    def _view_on_top(self, view, window=None):
+        win = window or view.window()
+        if not win:
+            return
+
         group, index = win.get_view_index(view)
         active_view = win.active_view_in_group(group)
+        if not active_view:
+            # ST2: This happens when switching tabs
+            return
+
         return active_view.buffer_id() == view.buffer_id()
 
 
