@@ -227,20 +227,25 @@ class InactivePanes(object):
                                           % (destdir, e))
                     raise  # re-raise to make sure that this plugin will not be executed further
 
-            # TODO: no need to copy the file if we're overwriting it anyway
             if ST2:
-                shutil.copy(source_abs, dest_abs)
+                with open(source_abs, 'r') as f:
+                    data = f.read()
+                target_f = open(dest_abs, 'w')
             else:
                 # ST3 does not unzip .sublime-packages, thus the "load_resource" API will be used.
-                with open(dest_abs, 'w', encoding='utf-8') as f:
-                    f.write(sublime.load_resource(source_rel))
+                data = sublime.load_resource(source_rel)
+                target_f = open(dest_abs, 'w', encoding='utf-8')
 
             print("[%s] Generating dimmed color scheme for '%s'" % (module_name, source_rel))
-            self.dim_scheme(dest_abs)
+            new_data = self.dim_scheme(data)
+            try:
+                target_f.write(new_data)
+            finally:
+                target_f.close()
 
         return dest_rel
 
-    def dim_scheme(self, scheme):
+    def dim_scheme(self, data):
         gray_scale = self._settings.gray_scale
         print("[%s] Gray scale: %s" % (module_name, gray_scale))
 
@@ -253,12 +258,7 @@ class InactivePanes(object):
 
             return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
-        with open(scheme) as f:
-            text = f.read()
-
-        text = re.sub("#" + (r"([0-9a-fA-F]{2})" * 3), dim_rgb, text)
-        with open(scheme, 'w') as f:
-            f.write(text)
+        return re.sub("#" + (r"([0-9a-fA-F]{2})" * 3), dim_rgb, data)
 
     ### The actual event handlers
 
