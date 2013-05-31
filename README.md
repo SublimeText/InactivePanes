@@ -1,7 +1,7 @@
 Inactive Panes
 ==============
 
-Inactive Panes is a plugin for [Sublime Text][st] 2 and 3 that will dim (or gray) the currently inactivate panes to show you more visibly where your cursor is and which view is focussed. Really Useful with the [Origami][origami] plugin or ST3's native panel handling.
+Inactive Panes is a plugin for [Sublime Text][st] 2 and 3 that will dim the currently inactivate panes to show you more visibly where your cursor is and which view is focussed. Really Useful with the [Origami][origami] plugin or ST3's native panel handling.
 
 This plugin is still *beta* but you are more than free to test it. Please report errors you encounter with this plugin [here][issues].
 
@@ -14,28 +14,44 @@ Originally created by [adzenith][adzenith], maintained by [FichteFoll][FichteFol
 Usage
 -----
 
-It should automatically dim all inactive views for you when you install it.
+It will automatically dim inactive groups when you install it.
 
-You can modify the dim strength (which averages to gray) with the `"fade_inactive_panes_gray_scale"` setting in your User settings (defaults to `0.2`). Please note that anything above `0.9` will make any text pretty much unreadable.
-
-When you want to disable this package, add it to your `"ignored_packages"` setting, and remove it when you want to enable it.
+When you want to disable this package, the easiest solution is to simply set the dim strength to `0`.
 Alternatively you can use Package Control's `Disable Package` and `Enable Package` commands.
 
-**Warning**: If you want to remove the package, use Package Control's `Remove Package` command. Do *not* delete the plugin folder by yourself if you didn't disable the package before! This will cause various error messages but nothing critical.
+**Warning**: If you want to remove the package, use Package Control's `Remove Package` command. Do **not** delete the plugin folder by yourself if you didn't disable the package before! This will cause various error messages (but nothing critical).
+
+### Configuration
+
+The following settings can be modified in your User settings file (`Preferences > Settings - User`):
+
+*   `"inactive_panes_dim_color"` (*default*: `"#7F7F7F"`, gray)
+
+    Change the color to dim to.
+
+*   `"inactive_panes_dim_strength"` (*default*: `0.2`)
+
+    Change the dim strength; ranges from `0` (no modification) to `1` (everything will be changed to the color set above).
 
 ### Screnshots
 
 #### Dark Scheme
 
-Using [a modified][tw-fichte] Twilight color scheme with a gray scale of `0.1`:
+Using [a modified][tw-fichte] Twilight color scheme with a dim strength of `0.1`:
 
 [![][scr-dark-thumb]][scr-dark]
 
 #### Bright Scheme
 
-Using LAZY color scheme with a gray scale of `0.3`:
+Using LAZY color scheme with a dim strength of `0.3`:
 
 [![][scr-bright-thumb]][scr-bright]
+
+#### Custom Color
+
+Using [a modified][tw-fichte] Twilight color scheme with a custom color of `"#7F7F00"` and dim strength of `0.1`:
+
+[![][scr-dark_colored-thumb]][scr-dark_colored]
 
 
 ### Known Issues
@@ -78,6 +94,8 @@ Inactive Panes is a split from [Origami][origami] which once included this featu
 [scr-dark-thumb]: http://i.imgur.com/4uKGLf3l.png
 [scr-bright]: http://i.imgur.com/CCcl1v3.png "LAZY color scheme; 0.3"
 [scr-bright-thumb]: http://i.imgur.com/CCcl1v3l.png
+[scr-dark_colored]: http://i.imgur.com/m5rc8j9.png "Twilight color scheme; 0.08; #7F7F00"
+[scr-dark_colored-thumb]: http://i.imgur.com/m5rc8j9l.png
 
 [pck-ctrl]: http://wbond.net/sublime_packages/package_control "Sublime Package Control by wbond"
 [data-dir]: http://docs.sublimetext.info/en/latest/basic_concepts.html#the-data-directory

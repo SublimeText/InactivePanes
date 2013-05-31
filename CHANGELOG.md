@@ -1,6 +1,14 @@
 File History Changelog
 ======================
 
+v0.3.1 (2013-05-31)
+-------------------
+
+- Add setting to set a costom color to dim to
+* **Note**: The `fade_inactive_panes_gray_scale` setting has been renamed to `inactive_panes_dim_strength`
+- The plugin won't do anything now if dim strength is set to `0`
+
+
 v0.3.0 (2013-05-31)
 -------------------
 
