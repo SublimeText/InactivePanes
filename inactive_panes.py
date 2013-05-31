@@ -124,7 +124,8 @@ class InactivePanes(object):
         self._settings = Settings(
             sublime.load_settings('Preferences.sublime-settings'),
             settings=dict(
-                gray_scale=('fade_inactive_panes_gray_scale', .2),
+                dim_strength=('inactive_panes_dim_strength', .2),
+                dim_color=('inactive_panes_dim_color', '#7F7F7F'),
                 # Including this in order to get a notification when the scheme has changed
                 _color_scheme=('color_scheme', None)
             ),
@@ -149,7 +150,7 @@ class InactivePanes(object):
             self.reset(disable)
 
     def reset(self, disable=False):
-        """Delete temporaryly generated dimmed files.
+        """Reset all views, delete temporarily generated dimmed files and set dimmed scheme(s) again
         """
         # "Disable" the plugin first (as in, remove all references to dimmed schemes).
         self.refresh_views(True)
@@ -171,6 +172,8 @@ class InactivePanes(object):
             self.refresh_views()
 
     def refresh_views(self, disable=False):
+        """Iterate over all views and re- or unapply dimmed scheme(s)
+        """
         # We need this because ST for some reason calls "on_activated" with void views on startup.
         self._refreshed = True
 
@@ -230,35 +233,55 @@ class InactivePanes(object):
             if ST2:
                 with open(source_abs, 'r') as f:
                     data = f.read()
-                target_f = open(dest_abs, 'w')
+                open_file = lambda: open(dest_abs, 'w')
             else:
                 # ST3 does not unzip .sublime-packages, thus the "load_resource" API will be used.
                 data = sublime.load_resource(source_rel)
-                target_f = open(dest_abs, 'w', encoding='utf-8')
+                open_file = lambda: open(dest_abs, 'w', encoding='utf-8')
 
             print("[%s] Generating dimmed color scheme for '%s'" % (module_name, source_rel))
             new_data = self.dim_scheme(data)
-            try:
-                target_f.write(new_data)
-            finally:
-                target_f.close()
+            if not new_data:
+                return
+
+            with open_file() as f:
+                f.write(new_data)
 
         return dest_rel
 
     def dim_scheme(self, data):
-        gray_scale = self._settings.gray_scale
-        print("[%s] Gray scale: %s" % (module_name, gray_scale))
+        """Dim a color scheme string and return it.
+        """
+        dim_color = self._settings.dim_color
+        dim_strength = self._settings.dim_strength
+        print("[%s] Dim color: %s; Dim strength: %s" % (module_name, dim_color, dim_strength))
 
-        def dim_rgb(match):
-            rgb = list(match.groups())
-            orig_scale = 1 - gray_scale
-            # Average toward gray
-            for i, c in enumerate(rgb):
-                rgb[i] = int(int(c, 16) * orig_scale + 127 * gray_scale)
+        # Check settings validity.
+        if not isinstance(dim_strength, (int, float)) or dim_strength < 0 or dim_strength > 1:
+            print("![%s] Dim strength is not a number between 0 and 1!" % (module_name))
+            return
+
+        re_rgb = re.compile("#" + (r"([0-9a-fA-F]{2})" * 3))
+        dim_rgb = re_rgb.match(dim_color)
+        if not dim_rgb or not len(dim_color) == 7:
+            print("![%s] Dim color must be of format '#RRGGBB' where the colors are hexadecimal "
+                  "digits from 0 to F!" % (module_name))
+            return
+
+        # Pre-calc the dim rgb fractions because they are static.
+        dim_rgb_v = tuple(int(int(c, 16) * dim_strength) for c in dim_rgb.groups())
+
+        def dim_and_repl_rgb(match):
+            rgb = match.groups()
+            orig_strength = 1 - dim_strength
+
+            # Average toward dim_color.
+            rgb = [int(int(rgb[i], 16) * orig_strength) + dim_rgb_v[i]
+                   for i in range(3)]
 
             return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
-        return re.sub("#" + (r"([0-9a-fA-F]{2})" * 3), dim_rgb, data)
+        return re_rgb.sub(dim_and_repl_rgb, data)
 
     ### The actual event handlers
 
@@ -327,6 +350,8 @@ class InactivePanes(object):
             vsettings.set('color_scheme', inactive_scheme)
 
     def _view_on_top(self, view, window=None):
+        """Check if specified view is on top of its group (it's actually visible)
+        """
         win = window or view.window()
         if not win:
             return
