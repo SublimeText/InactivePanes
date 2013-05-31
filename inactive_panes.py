@@ -137,7 +137,7 @@ class InactivePanes(object):
 
     def deinit(self):
         self._settings.unregister()
-        self.reset(True)
+        self.cycling_reset(True)
 
     ### Utitily functions
 
@@ -147,7 +147,8 @@ class InactivePanes(object):
         if not sublime.active_window():
             sublime.set_timeout(self.cycling_reset, 50)
         else:
-            self.reset(disable)
+            # Just disable the package if dim strength is `0`.
+            self.reset(disable or self._settings.dim_strength == 0)
 
     def reset(self, disable=False):
         """Reset all views, delete temporarily generated dimmed files and set dimmed scheme(s) again
