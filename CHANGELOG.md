@@ -1,6 +1,13 @@
 File History Changelog
 ======================
 
+v0.3.0 (2013-05-31)
+-------------------
+
+- Make the plugin work when installed via Package Control in ST3 (.sublime-package)
+- Fix error when to-be-dimmed color scheme contains unicode chars in ST3
+
+
 v0.2.2 (2013-05-30)
 -------------------
 
