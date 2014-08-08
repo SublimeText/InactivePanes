@@ -8,6 +8,11 @@ import sublime_plugin
 ST2 = int(sublime.version()) < 3000
 DEBUG = True
 
+# TODO remove ST2 support. That thing is ridiculous and fires on_activated events
+# at everything that doesn't take cover in time. Would ease maintaining this a lot.
+# Did I mention that ST2 loads User settings AFTER the plugin, which results in color schemes to be
+# dimmed twice if the settings are not our default? Well, it makes sense but is still annoying.
+
 
 # We have to record the module path when the file is loaded because
 # Sublime Text 2 changes it later.
@@ -353,17 +358,18 @@ class InactivePanes(object):
 
     def view_is_visible(self, view, window=None):
         """Check if specified view is on top of its group => it's actually visible."""
-        win = window or view.window()
-        if not win:
+        window = window or view.window()
+        if not window:
             return
 
-        group, index = win.get_view_index(view)
-        active_view = win.active_view_in_group(group)
+        group, index = window.get_view_index(view)
+        active_view = window.active_view_in_group(group)
         if not active_view:
-            # ST2: This happens when switching tabs
-            return
+            # ST2: This is always None when switching tabs in the same group, but if an unnamed
+            # tabs was to be returned, so test if that happened.
+            return window.active_group() != group
 
-        return active_view.buffer_id() == view.buffer_id()
+        return active_view.id() == view.id()
 
 
 # Use this local instance for all the references
@@ -391,6 +397,16 @@ class InactivePanesListener(sublime_plugin.EventListener):
         ):
             return
         inpanes.dim_view(view)
+
+    # This is mainly for opening entire projects
+    def on_load(self, view):
+        # Remove references to possibly now non-existant schemes
+        # (on ST2 this should've happened already)
+        inpanes.undim_view(view)
+        # Then dim all (visible) but the active
+        # (on ST2, non-visible views seem to have no window associated at this time)
+        if view.window() and view.id() != view.window().active_view().id():
+            inpanes.dim_view(view)
 
 
 # I don't use this currently but maybe it will come in hand when debugging other's issues
