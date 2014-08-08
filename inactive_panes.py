@@ -203,10 +203,10 @@ class InactivePanes(object):
                     continue
 
                 if disable or v.id() == active_view_id:
-                    self.on_activated(v)
+                    self.undim_view(v)
                 else:
                     # Need to pass the window because `view.window()` is apparently `None` here ...
-                    self.on_deactivated(v, w)
+                    self.dim_view(v, w)
 
     def create_inactive_scheme(self, source_rel):
         """This is where the fun begins.
@@ -277,7 +277,7 @@ class InactivePanes(object):
 
         # Check settings validity.
         if not isinstance(dim_strength, (int, float)) or dim_strength < 0 or dim_strength > 1:
-            print("![%s] Dim strength is not a number between 0 and 1!" % (module_name))
+            print("![%s] Dim strength is not a number between 0 and 1!" % (MODULE_NAME))
             return
 
         re_rgb = re.compile("#" + (r"([0-9a-fA-F]{2})" * 3))
@@ -304,18 +304,10 @@ class InactivePanes(object):
 
     ### The actual event handlers
 
-    def on_activated(self, view):
+    def undim_view(self, view):
+        """Undo our dimming and restore potential prev view-specific color scheme."""
         if not self._refreshed:
             return
-
-        if (
-            view is None
-            or not (view.settings().get('is_widget')
-                    or view.file_name()
-                    or view.is_scratch()
-                    or view.is_dirty())
-        ):
-            print("[%s] Void view?" % module_name)
 
         vsettings = view.settings()
 
@@ -329,18 +321,9 @@ class InactivePanes(object):
             # Otherwise just erease our user-scheme
             vsettings.erase('color_scheme')
 
-    def on_deactivated(self, view, window=None):
-        if (
-            # Invalid argument
-            view is None
-            # We have a widget here, not of interest
-            or view.settings().get('is_widget')
-            # view was closed
-            or not view.buffer_id()
-            # No business here, we wait for the plugin to refresh in order to ignore ST2's dummy
-            # views that are passed sometimes.
-            or not self._refreshed
-        ):
+    def dim_view(self, view, window=None):
+        """Dim a view with our settings, if it's visible, and store prev view-spcific setting."""
+        if not self._refreshed:
             return
 
         vsettings = view.settings()
@@ -348,10 +331,10 @@ class InactivePanes(object):
         # Reset to the base color scheme first if there was any
         # (in case ST was restarted).
         if MODULE_NAME in vsettings.get('color_scheme'):
-            self.on_activated(view)
+            self.undim_view(view)
 
         # Don't bother any more if the current view is not on top
-        if not self._view_on_top(view, window):
+        if not self.view_is_visible(view, window):
             return
 
         # Note: all "scheme" paths here are relative
@@ -368,9 +351,8 @@ class InactivePanes(object):
         if inactive_scheme:
             vsettings.set('color_scheme', inactive_scheme)
 
-    def _view_on_top(self, view, window=None):
-        """Check if specified view is on top of its group (it's actually visible)
-        """
+    def view_is_visible(self, view, window=None):
+        """Check if specified view is on top of its group => it's actually visible."""
         win = window or view.window()
         if not win:
             return
@@ -388,12 +370,27 @@ class InactivePanes(object):
 inpanes = InactivePanes()
 
 
-class InactivePaneCommand(sublime_plugin.EventListener):
+class InactivePanesListener(sublime_plugin.EventListener):
     def on_activated(self, view):
-        inpanes.on_activated(view)
+        # For some weird reason, ST2 fires this event twice for every view,
+        # once with (and no corresponding deactivation) and once without an associated .window().
+        # We'll try to reset our color scheme references at the earliest point possible though.
+
+        # Don't remove color schemes from widgets (e.g. output panels)
+        if not (view.settings().get('is_widget') or view.window() is None):
+            inpanes.undim_view(view)
 
     def on_deactivated(self, view):
-        inpanes.on_deactivated(view)
+        if (
+            # Invalid argument
+            view is None
+            # We have a widget here, not of interest
+            or view.settings().get('is_widget') or view.window() is None
+            # view was closed
+            or not view.buffer_id()
+        ):
+            return
+        inpanes.dim_view(view)
 
 
 # I don't use this currently but maybe it will come in hand when debugging other's issues
