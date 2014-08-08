@@ -1,6 +1,13 @@
 File History Changelog
 ======================
 
+~current iteration~
+-------------------
+
+- Remove the old workaround that involved saving generated files to a different
+  package ("InactivePanes_")
+
+
 v0.3.1 (2013-05-31)
 -------------------
 

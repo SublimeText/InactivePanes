@@ -9,7 +9,9 @@ ST2 = int(sublime.version()) < 3000
 
 
 # We have to record the module path when the file is loaded because
-# Sublime Text changes it later (on ST2).
+# Sublime Text 2 changes it later.
+# On ST3 we could use os.path.join(sublime.packages_path(), __package__), but sadly this method is
+# not available until the API has loaded.
 def get_module_path():
     if ST2:
         return os.getcwdu(), False
@@ -23,14 +25,19 @@ def get_module_path():
     else:
         return dir_name, False
 
-module_path, installed = get_module_path()
-module_name = os.path.split(module_path)[1]
+MODULE_PATH, _ = get_module_path()
+MODULE_NAME = os.path.split(MODULE_PATH)[1]
 
-# In ST3 we need to copy the color schemes in a different dir because creating a folder with the
-# same name as this package will cause ST to fail importing this plugin.
+# ST3 had a bug where we needed to copy to a different package dir because otherwise plugins from
+# archived packages would not be loaded. Since this has been fixed, remove it if it still exists.
 # See: http://www.sublimetext.com/forum/viewtopic.php?f=3&t=12564
-target_module_path = module_path + ("_" if installed else "")
-target_module_name = os.path.split(target_module_path)[1]
+if os.path.exists(MODULE_PATH + '_'):
+    try:
+        shutil.rmtree(MODULE_PATH + '_')
+    except Exception as e:
+        print("Unable to remove the deprecated '%s_' dir: %s %s"
+              % (MODULE_NAME, e.__class__.__name__, e))
+
 
 
 class Settings(object):
@@ -162,12 +169,13 @@ class InactivePanes(object):
                                   "Error with function '%s': %s"
                                   % (path, function, excinfo))
 
-        # Delete all subdirs of this module.
-        for root, dirs, files in os.walk(target_module_path):
+        # Delete all subdirs of this module to cleanup leftover schemes
+        # (and regenerate them in case settings have changed during downtime)
+        for root, dirs, _ in os.walk(MODULE_PATH):
             if '.git' in dirs:
-                dirs.remove('.git')  # do not iterate over .git or subdirs
-            for di in dirs:
-                shutil.rmtree(os.path.join(root, di), onerror=onerror)
+                dirs.remove('.git')  # do not iterate over .git or its subdirs
+            for d in dirs:
+                shutil.rmtree(os.path.join(root, d), onerror=onerror)
 
         if not disable:
             self.refresh_views()
@@ -203,7 +211,7 @@ class InactivePanes(object):
                 "Your setup seems to use an unrecognized color scheme setting which %s does not "
                 "take care of. Please create an issue at this package's repository or a post in "
                 "the forum and mention your color_scheme path: '%s'."
-                % (module_name, source_rel)
+                % (MODULE_NAME, source_rel)
             )
             return
 
@@ -214,7 +222,7 @@ class InactivePanes(object):
         source_abs = os.path.join(data_path, *source_rel.split("/"))
         # Reconstruct the relative path inside of our module directory; we have something of a
         # shadow copy of the scheme.
-        dest_rel = prefix + "%s/%s" % (target_module_name, source_rel[len(prefix):])
+        dest_rel = prefix + "%s/%s" % (MODULE_NAME, source_rel[len(prefix):])
         dest_abs = os.path.join(data_path, *dest_rel.split("/"))
 
         # Copy and dim the scheme if it does not exist
@@ -266,7 +274,7 @@ class InactivePanes(object):
         dim_rgb = re_rgb.match(dim_color)
         if not dim_rgb or not len(dim_color) == 7:
             print("![%s] Dim color must be of format '#RRGGBB' where the colors are hexadecimal "
-                  "digits from 0 to F!" % (module_name))
+                  "digits from 0 to F!" % (MODULE_NAME))
             return
 
         # Pre-calc the dim rgb fractions because they are static.
@@ -329,7 +337,7 @@ class InactivePanes(object):
 
         # Reset to the base color scheme first if there was any
         # (in case ST was restarted).
-        if target_module_name in vsettings.get('color_scheme'):
+        if MODULE_NAME in vsettings.get('color_scheme'):
             self.on_activated(view)
 
         # Don't bother any more if the current view is not on top
