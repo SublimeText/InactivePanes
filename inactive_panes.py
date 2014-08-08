@@ -28,6 +28,11 @@ def get_module_path():
 MODULE_PATH, _ = get_module_path()
 MODULE_NAME = os.path.split(MODULE_PATH)[1]
 
+# Emergency stop. You'll thank me if you ever experience what I did.
+if MODULE_PATH == sublime.packages_path():
+    import sys
+    sys.exit(1)
+
 # ST3 had a bug where we needed to copy to a different package dir because otherwise plugins from
 # archived packages would not be loaded. Since this has been fixed, remove it if it still exists.
 # See: http://www.sublimetext.com/forum/viewtopic.php?f=3&t=12564
