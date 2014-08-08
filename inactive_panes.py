@@ -6,6 +6,7 @@ import sublime
 import sublime_plugin
 
 ST2 = int(sublime.version()) < 3000
+DEBUG = True
 
 
 # We have to record the module path when the file is loaded because
@@ -43,6 +44,10 @@ if os.path.exists(MODULE_PATH + '_'):
         print("Unable to remove the deprecated '%s_' dir: %s %s"
               % (MODULE_NAME, e.__class__.__name__, e))
 
+
+def debug(msg):
+    if DEBUG:
+        print("[%s] %s" % (MODULE_NAME, msg))
 
 
 class Settings(object):
@@ -253,7 +258,7 @@ class InactivePanes(object):
                 data = sublime.load_resource(source_rel)
                 open_file = lambda: open(dest_abs, 'w', encoding='utf-8')
 
-            print("[%s] Generating dimmed color scheme for '%s'" % (module_name, source_rel))
+            debug("Generating dimmed color scheme for '%s'" % source_rel)
             new_data = self.dim_scheme(data)
             if not new_data:
                 return
@@ -268,7 +273,7 @@ class InactivePanes(object):
         """
         dim_color = self._settings.dim_color
         dim_strength = self._settings.dim_strength
-        print("[%s] Dim color: %s; Dim strength: %s" % (module_name, dim_color, dim_strength))
+        debug("Dim color: %s; Dim strength: %s" % (dim_color, dim_strength))
 
         # Check settings validity.
         if not isinstance(dim_strength, (int, float)) or dim_strength < 0 or dim_strength > 1:
@@ -409,7 +414,7 @@ def plugin_loaded():
 
 
 def plugin_unloaded():
-    print("[%s] Deactivating..." % module_name)
+    debug("Deactivating...")
     inpanes.deinit()
 
 # ST2 backwards (and don't call it twice in ST3)
