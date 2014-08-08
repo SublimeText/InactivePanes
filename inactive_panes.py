@@ -56,6 +56,7 @@ def debug(msg):
 
 
 class Settings(object):
+
     """Provides various helping functions for wrapping the sublime settings objects.
 
     `settings` should be provided as a dict of tuples and attribute names should not be one of the
@@ -90,6 +91,7 @@ class Settings(object):
             Returns a dict with the tracked settings as keys and their values (not the attribute
             names). With the above example: `{"settings_key_to_read_from": 'current_value'}`.
     """
+
     _sobj = None
     _settings = None
     _callback = None
@@ -134,13 +136,16 @@ class Settings(object):
 
 
 class InactivePanes(object):
+
     """A dummy class which holds this plugin's methods.
-    Maybe I can think of a better way to structure plugins like these but for now this'll do it
+
+    Maybe I can think of a better way to structure plugins like these but for now this'll do it.
     """
+
     _settings  = None
     _refreshed = False
 
-    ### Custom init and deinit
+    # Custom init and deinit
 
     def init(self):
         self._settings = Settings(
@@ -161,11 +166,10 @@ class InactivePanes(object):
         self._settings.unregister()
         self.cycling_reset(True)
 
-    ### Utitily functions
+    # Core methods
 
     def cycling_reset(self, disable=False):
-        """Retry accessing the active window until it is available
-        """
+        """Retry accessing the active window until it is available."""
         if not sublime.active_window():
             sublime.set_timeout(self.cycling_reset, 50)
         else:
@@ -173,8 +177,7 @@ class InactivePanes(object):
             self.reset(disable or self._settings.dim_strength == 0)
 
     def reset(self, disable=False):
-        """Reset all views, delete temporarily generated dimmed files and set dimmed scheme(s) again
-        """
+        """Reset all views, delete generated dimmed files and set dimmed scheme(s) again."""
         # "Disable" the plugin first (as in, remove all references to dimmed schemes).
         self.refresh_views(True)
 
@@ -196,15 +199,15 @@ class InactivePanes(object):
             self.refresh_views()
 
     def refresh_views(self, disable=False):
-        """Iterate over all views and re- or unapply dimmed scheme(s)
-        """
-        # We need this because ST for some reason calls "on_activated" with void views on startup.
+        """Iterate over all views and re- or unapply dimmed scheme(s)."""
+        # We need this because ST for some reason calls "on_activated" with 'void' views on startup.
         self._refreshed = True
 
         active_view_id = sublime.active_window().active_view().id()
         for w in sublime.windows():
             for v in w.views():
                 if v.settings().get('is_widget'):
+                    # Does this even happen?
                     continue
 
                 if disable or v.id() == active_view_id:
@@ -214,8 +217,7 @@ class InactivePanes(object):
                     self.dim_view(v, w)
 
     def create_inactive_scheme(self, source_rel):
-        """This is where the fun begins.
-        """
+        """And this is where the fun begins."""
         # Assume scheme paths always look like this "Packages/.../*.tmTheme" (which means the root
         # is the Data directory), because nothing else seems to work.
         prefix = "Packages/"
@@ -254,28 +256,27 @@ class InactivePanes(object):
                                           % (destdir, e))
                     raise  # re-raise to make sure that this plugin will not be executed further
 
+            write_params = {}
             if ST2:
                 with open(source_abs, 'r') as f:
                     data = f.read()
-                open_file = lambda: open(dest_abs, 'w')
             else:
                 # ST3 does not unzip .sublime-packages, thus the "load_resource" API will be used.
                 data = sublime.load_resource(source_rel)
-                open_file = lambda: open(dest_abs, 'w', encoding='utf-8')
+                write_params["encoding"] = 'utf-8'
 
             debug("Generating dimmed color scheme for '%s'" % source_rel)
             new_data = self.dim_scheme(data)
             if not new_data:
                 return
 
-            with open_file() as f:
+            with open(dest_abs, 'w', **write_params) as f:
                 f.write(new_data)
 
         return dest_rel
 
     def dim_scheme(self, data):
-        """Dim a color scheme string and return it.
-        """
+        """Dim a color scheme string and return it."""
         dim_color = self._settings.dim_color
         dim_strength = self._settings.dim_strength
         debug("Dim color: %s; Dim strength: %s" % (dim_color, dim_strength))
@@ -285,7 +286,7 @@ class InactivePanes(object):
             print("![%s] Dim strength is not a number between 0 and 1!" % (MODULE_NAME))
             return
 
-        re_rgb = re.compile("#" + (r"([0-9a-fA-F]{2})" * 3))
+        re_rgb = re.compile("#" + (r"([0-9A-F]{2})" * 3), re.I)
         dim_rgb = re_rgb.match(dim_color)
         if not dim_rgb or not len(dim_color) == 7:
             print("![%s] Dim color must be of format '#RRGGBB' where the colors are hexadecimal "
@@ -306,8 +307,6 @@ class InactivePanes(object):
             return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
         return re_rgb.sub(dim_and_repl_rgb, data)
-
-    ### The actual event handlers
 
     def undim_view(self, view):
         """Undo our dimming and restore potential prev view-specific color scheme."""
@@ -348,7 +347,7 @@ class InactivePanes(object):
         default_scheme = vsettings.get('color_scheme')
         if active_scheme != default_scheme:
             # Because the settings do not equal after removing the view-specific setting the view's
-            # color scheme is expicitly set so save it for later.
+            # color scheme is explicitly set, so save it for later.
             vsettings.set('default_scheme', active_scheme)
 
         # Potentially copy and dim the scheme
@@ -411,6 +410,9 @@ class InactivePanesListener(sublime_plugin.EventListener):
 
 # I don't use this currently but maybe it will come in hand when debugging other's issues
 class ColorSchemeEmergencyResetCommand(sublime_plugin.ApplicationCommand):
+
+    """Removes view-specific color scheme settings (including our temporary)."""
+
     def run(self):
         for window in sublime.windows():
             for view in window.views():
@@ -418,11 +420,10 @@ class ColorSchemeEmergencyResetCommand(sublime_plugin.ApplicationCommand):
                 vsettings.erase('color_scheme')
                 vsettings.erase('default_scheme')
 
-        print("All color schemes have been reset")
+        print("All color scheme settings have been reset")
 
 
 def plugin_loaded():
-    # "Initialize" the instance here
     inpanes.init()
 
 
