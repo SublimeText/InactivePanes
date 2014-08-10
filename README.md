@@ -1,29 +1,43 @@
-Inactive Panes
-==============
+# Inactive Panes
 
-Inactive Panes is a plugin for [Sublime Text][st] 2 and 3 that will dim the currently inactivate panes to show you more visibly where your cursor is and which view is focussed. Really Useful with the [Origami][origami] plugin or ST3's native panel handling.
+Inactive Panes is a plugin for [Sublime Text][st] 2 and 3 that will dim the
+currently visible but inactivate panes to show you more visibly where your
+caret is and which view is focussed. Really useful with the [Origami][origami]
+plugin or ST3's native panel handling.
 
-This plugin is still *beta* but you are more than free to test it. Please report errors you encounter with this plugin [here][issues].
+This plugin could have incompatabilities with other plugins that modify color
+schemes programmatically, but so far no issues have been found. Please report
+errors you *do* encounter with this plugin [here][issues], also if they are not
+related to other plugins.
 
-**Warning**: Do not use this with other color-changing plugins like [LiveCSS][livecss] as it will probably cause various issues and eventually *bring the world to an end*.
+Originally created by [adzenith][adzenith], maintained by
+[FichteFoll][FichteFoll].
 
 
-Originally created by [adzenith][adzenith], maintained by [FichteFoll][FichteFoll].
+## Installation
+
+You can install this package from [Package Control][pck-ctrl] as
+`InactivePanes`.
 
 
-Usage
------
+## Usage
 
-It will automatically dim inactive groups when you install it.
+Views in inactive groups will automatically dimmed automatically when you
+install it.
 
-When you want to disable this package, the easiest solution is to simply set the dim strength to `0`.
-Alternatively you can use Package Control's `Disable Package` and `Enable Package` commands.
+When you want to disable this package, the easiest solution is to simply set
+the dim strength to `0` (see below). Alternatively you can use Package
+Control's `Disable Package` and `Enable Package` commands.
 
-**Warning**: If you want to remove the package, use Package Control's `Remove Package` command. Do **not** delete the plugin folder by yourself if you didn't disable the package before! This will cause various error messages (but nothing critical).
+**Warning**: If you want to remove the package, use Package Control's `Remove
+Package` command. Do **not** delete the plugin folder by yourself if you didn't
+disable the package before and ST is not running! This will cause various error
+messages (but nothing critical).
 
 ### Configuration
 
-The following settings can be modified in your User settings file (`Preferences > Settings - User`):
+The following settings can be modified in your *User settings file*
+(`Preferences > Settings - User`):
 
 *   `"inactive_panes_dim_color"` (*default*: `"#7F7F7F"`, gray)
 
@@ -31,13 +45,15 @@ The following settings can be modified in your User settings file (`Preferences 
 
 *   `"inactive_panes_dim_strength"` (*default*: `0.2`)
 
-    Change the dim strength; ranges from `0` (no modification) to `1` (everything will be changed to the color set above).
+    Change the dim strength; ranges from `0` (no modification) to `1`
+    (everything will be changed to the color set above).
 
 ### Screnshots
 
 #### Dark Scheme
 
-Using [a modified][tw-fichte] Twilight color scheme with a dim strength of `0.1`:
+Using [a modified][tw-fichte] Twilight color scheme with a dim strength of
+`0.1`:
 
 [![][scr-dark-thumb]][scr-dark]
 
@@ -49,36 +65,26 @@ Using LAZY color scheme with a dim strength of `0.3`:
 
 #### Custom Color
 
-Using [a modified][tw-fichte] Twilight color scheme with a custom color of `"#7F7F00"` and dim strength of `0.1`:
+Using [a modified][tw-fichte] Twilight color scheme with a custom color of
+`"#7F7F00"` and dim strength of `0.1`:
 
 [![][scr-dark_colored-thumb]][scr-dark_colored]
 
 
 ### Known Issues
 
-- When opening the same file in two groups (with command palette or by cloning it) both of the views will be marked as active. This is because there is no way to assign different color schemes to these view's since they share the same settings.
+- When opening the same file in two groups (with command palette or by cloning
+  it) both of the views will be marked as active. This is because there is no
+  way to assign different color schemes to these view's since they share the
+  same settings.
 
 
-Install
--------
+## About
 
-### Package Control
-
-You can install this package from [Package Control][pck-ctrl] under `"InactivePanes"`.
-
-### Alternative
-
-Browse the [Packages][packages-dir] sub-folder of your [Data directory][data-dir] and clone the repo:
-
-    git clone git://github.com/SublimeText/InactivePanes.git
-
-Alternatively you can download a recent [zip archive][tags] and extract it into an "InactivePanes" sub-directory of the Packages dir mentioned above.
-
-
-About
------
-
-Inactive Panes is a split from [Origami][origami] which once included this feature but due to various (unfixable) issues it was removed. I extracted relevant commits from the Origami repo to keep developing this feature because I've used it ever since (with no issues yet) and think that it's really useful.
+Inactive Panes is a split from [Origami][origami] which once included this
+feature but due to various issues it was removed. I extracted relevant commits
+(for retaining the commit history) from the Origami repo to keep developing
+this feature because I've used it ever since and think that it's really useful.
 
 
 [st]: https://www.sublimetext.com/
