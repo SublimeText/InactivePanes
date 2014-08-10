@@ -377,6 +377,10 @@ inpanes = InactivePanes()
 
 class InactivePanesListener(sublime_plugin.EventListener):
     def on_activated(self, view):
+        if ST2:
+            sublime.set_timeout(50, lambda: self.on_activated_async(view))
+
+    def on_activated_async(self, view):
         # For some weird reason, ST2 fires this event twice for every view,
         # once with (and no corresponding deactivation) and once without an associated .window().
         # We'll try to reset our color scheme references at the earliest point possible though.
@@ -386,6 +390,10 @@ class InactivePanesListener(sublime_plugin.EventListener):
             inpanes.undim_view(view)
 
     def on_deactivated(self, view):
+        if ST2:
+            sublime.set_timeout(50, lambda: self.on_deactivated_async(view))
+
+    def on_deactivated_async(self, view):
         if (
             # Invalid argument
             view is None

@@ -7,6 +7,7 @@ File History Changelog
 - Remove the old workaround that involved saving generated files to a different
   package ("InactivePanes_")
 - ST2: Fix new and unnamed tabs not being dimmed at all
+- ST2: Attempt to fix crashes when dragging tabs in multi-group layouts
 
 
 v0.3.1 (2013-05-31)
