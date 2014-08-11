@@ -8,6 +8,9 @@ import sublime_plugin
 ST2 = int(sublime.version()) < 3000
 DEBUG = True
 
+if not ST2:
+    basestring = str
+
 # TODO remove ST2 support. That thing is ridiculous and fires on_activated events
 # at everything that doesn't take cover in time. Would ease maintaining this a lot.
 # Did I mention that ST2 loads User settings AFTER the plugin, which results in color schemes to be
@@ -55,8 +58,8 @@ def debug(msg):
         print("[%s] %s" % (MODULE_NAME, msg))
 
 
+# TODO move this somewhere else, preferrably submodule
 class Settings(object):
-
     """Provides various helping functions for wrapping the sublime settings objects.
 
     `settings` should be provided as a dict of tuples and attribute names should not be one of the
@@ -66,10 +69,14 @@ class Settings(object):
     Settings(
         sublime.load_settings("Preferences.sublime-settings"),
         dict(
-            attribute_name_to_save_as=('settings_key_to_read_from', 'default_value')
+            attr_name_to_save_as=('settings_key_to_read_from', 'default_value'),
+            attr_name_to_save_as2='settings_key_to_read_from_with_default_None',
+            attr_name_and_settings_key_with_default_None=None
             #, ...
         ),
-        on_settings_changed  # optional, callback
+        on_settings_changed,  # optional, callback
+        auto_update  # optional, bool
+                     # (whether the attributes should be kept up to date; default: True)
     )
 
     `settings_changed` will be called when the registered settings changed, and this time for real.
@@ -82,28 +89,44 @@ class Settings(object):
         * update()
             Reads all the settings and saves them in their respective attributes.
         * has_changed()
-            Returns a boolean if the currently cached settings differ.
-        * register(callback)
-            Runs `add_on_change` for all settings defined with `callback` param
-        * unregister()
-            See above, `clear_on_change`.
+            Returns a boolean if the currently cached settings differ from the settings object.
         * get_state()
-            Returns a dict with the tracked settings as keys and their values (not the attribute
+            Returns a dict with the tracked settings as keys and their values (NOT the attribute
             names). With the above example: `{"settings_key_to_read_from": 'current_value'}`.
+        * get_real_state()
+            Same as above but ALWAYS returns the actual current values in the settings object.
+        * set_callback(callback, auto_update=True)
+            Calls `callback` whenever a tracked setting's value changes. See above on why this
+            behavior differs to `register`.
+            If `auto_update` is true it will automatically update the attributes when the settings
+            changes. This always happens when a callback is set.
+            Returns the previous callback if any.
+        * clear_callback(clear_auto_update=False)
+            Clears the callback set above and returns it in the process.
     """
-
     _sobj = None
     _settings = None
     _callback = None
+    _registered = False
+    _enabled = True
 
-    def __init__(self, settings_obj, settings, callback=None):
+    def __init__(self, settings_obj, settings, callback=None, auto_update=True):
         self._sobj = settings_obj
+
+        for k, v in settings.items():
+            if v is None:
+                # Use the attr name as settings key and `None` as default
+                settings[k] = (k, None)
+            if isinstance(v, basestring):
+                # Set default to `None` if a string was supplied
+                settings[k] = (v, None)
         self._settings = settings
-        self._callback = callback
 
         self.update()
-        if callable(self._callback):
-            self.register(self._on_change)
+        self.set_callback(callback, auto_update)
+
+    def __del__(self):
+        self.clear_callback(True)
 
     def update(self):
         for attr, (name, def_value) in self._settings.items():
@@ -113,26 +136,48 @@ class Settings(object):
         # Only trigger if relevant settings changed
         if self.has_changed():
             self.update()
-            self._callback()
+            if self._callback:
+                self._callback()
 
-    def has_changed(self):
-        for attr, (name, def_value) in self._settings.items():
-            if getattr(self, attr) != self._sobj.get(name, def_value):
-                return True
-
-        return False
-
-    def register(self, callback):
+    def _register(self, callback):
+        self._registered = True
         for name, _ in self._settings.values():
             self._sobj.add_on_change(name, callback)
 
-    def unregister(self):
+    def _unregister(self):
+        self._registered = False
         for name, _ in self._settings.values():
             self._sobj.clear_on_change(name)
 
+    def has_changed(self):
+        return self.get_state() != self.get_real_state()
+
     def get_state(self):
+        return dict((name, getattr(self, attr))
+                    for attr, (name, _) in self._settings.items())
+
+    def get_real_state(self):
         return dict((name, self._sobj.get(name, def_value))
                     for name, def_value in self._settings.values())
+
+    def set_callback(self, callback, auto_update=True):
+        if callback is not None and not callable(callback):
+            raise TypeError("callback must be callable or None")
+
+        register = bool(auto_update or callback)
+        old_cb = self.clear_callback(not register)
+        self._callback = callback
+        if not self._registered and register:
+            self._register(self._on_change)
+
+        return old_cb
+
+    def clear_callback(self, clear_auto_update=False):
+        old_cb = self._callback
+        self._callback = None
+        if self._registered and clear_auto_update:
+            self._unregister()
+        return old_cb
 
 
 class InactivePanes(object):
