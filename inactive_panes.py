@@ -1,6 +1,7 @@
 import os
 import shutil
 import re
+from functools import partial
 
 import sublime
 import sublime_plugin
@@ -168,7 +169,7 @@ class Settings(object):
         old_cb = self.clear_callback(not register)
         self._callback = callback
         if not self._registered and register:
-            self._register(self._on_change)
+            self._register(self.__on_change)
 
         return old_cb
 
@@ -178,6 +179,36 @@ class Settings(object):
         if self._registered and clear_auto_update:
             self._unregister()
         return old_cb
+
+    def __on_change(self):
+        """Special on_change handler for InactivePanes."""
+        # Don't check for changes, just update
+        if not self._enabled:
+            if self.has_changed():
+                self.update()
+            return
+
+        # Only trigger if relevant settings changed
+        if not self.has_changed():
+            # Check if the underlying "color_scheme" (not-view setting) has changed.
+            # For this we need to temporarily erase the setting.
+            s = self._sobj
+            # Disable to prevent an infinite recursive call chain.
+            self._enabled = False
+            dimmed_scheme = s.get("color_scheme")
+            s.erase("color_scheme")
+            base_scheme = s.get("color_scheme")[len('Packages/'):]
+            s.set("color_scheme", dimmed_scheme)
+
+            underlying_changed = (base_scheme not in dimmed_scheme
+                                  or MODULE_NAME not in dimmed_scheme)
+            self._enabled = True
+            if not underlying_changed:
+                return
+
+        self.update()
+        if self._callback:
+            self._callback()
 
 
 class InactivePanes(object):
@@ -189,27 +220,16 @@ class InactivePanes(object):
 
     _settings  = None
     _refreshed = False
+    _dimmed_view_settings = dict()
 
     # Custom init and deinit
 
     def init(self):
-        self._settings = Settings(
-            sublime.load_settings('Preferences.sublime-settings'),
-            settings=dict(
-                dim_strength=('inactive_panes_dim_strength', .2),
-                dim_color=('inactive_panes_dim_color', '#7F7F7F'),
-                # Including this in order to get a notification when the scheme has changed
-                _color_scheme=('color_scheme', None)
-            ),
-            callback=self.cycling_reset
-        )
-
         # Boot up
         self.cycling_reset()
 
     def deinit(self):
-        self._settings.unregister()
-        self.cycling_reset(True)
+        self.cycling_reset(disable=True)
 
     # Core methods
 
@@ -218,8 +238,7 @@ class InactivePanes(object):
         if not sublime.active_window():
             sublime.set_timeout(self.cycling_reset, 50)
         else:
-            # Just disable the package if dim strength is `0`.
-            self.reset(disable or self._settings.dim_strength == 0)
+            self.reset(disable)
 
     def reset(self, disable=False):
         """Reset all views, delete generated dimmed files and set dimmed scheme(s) again."""
@@ -261,8 +280,11 @@ class InactivePanes(object):
                     # Need to pass the window because `view.window()` is apparently `None` here ...
                     self.dim_view(v, w)
 
-    def create_inactive_scheme(self, source_rel):
-        """And this is where the fun begins."""
+    def create_dimmed_scheme(self, source_rel, settings, force=False):
+        """Create a new dimmed scheme out of source_rel with the given settings.
+
+        Unless force=True, an already existing file will not be overwritten.
+        Return the relative path to the dimmed scheme."""
         # Assume scheme paths always look like this "Packages/.../*.tmTheme" (which means the root
         # is the Data directory), because nothing else seems to work.
         prefix = "Packages/"
@@ -288,7 +310,7 @@ class InactivePanes(object):
         dest_abs = os.path.join(data_path, *dest_rel.split("/"))
 
         # Copy and dim the scheme if it does not exist
-        if not os.path.isfile(dest_abs):
+        if force or not os.path.isfile(dest_abs):
             destdir = os.path.dirname(dest_abs)
             if not os.path.isdir(destdir):
                 try:
@@ -311,7 +333,7 @@ class InactivePanes(object):
                 write_params["encoding"] = 'utf-8'
 
             debug("Generating dimmed color scheme for '%s'" % source_rel)
-            new_data = self.dim_scheme(data)
+            new_data = self.dim_scheme(data, settings)
             if not new_data:
                 return
 
@@ -320,10 +342,10 @@ class InactivePanes(object):
 
         return dest_rel
 
-    def dim_scheme(self, data):
+    def dim_scheme(self, data, settings):
         """Dim a color scheme string and return it."""
-        dim_color = self._settings.dim_color
-        dim_strength = self._settings.dim_strength
+        dim_color = settings.dim_color
+        dim_strength = settings.dim_strength
         debug("Dim color: %s; Dim strength: %s" % (dim_color, dim_strength))
 
         # Check settings validity.
@@ -358,47 +380,110 @@ class InactivePanes(object):
         if not self._refreshed:
             return
 
-        vsettings = view.settings()
+        # Remove from our dimmed settings list and unregister before we reset the scheme.
+        vsettings = self._dimmed_view_settings.pop(view.id(), None)
+        if vsettings:
+            vsettings.clear_callback(True)
+
+        s = view.settings()
 
         # Get the previous scheme of the current view (if it existed).
-        default_scheme = vsettings.get('default_scheme')
+        # Note that we always check for this.
+        default_scheme = s.get('default_scheme')
 
         if default_scheme:
-            vsettings.set('color_scheme', default_scheme)
-            vsettings.erase('default_scheme')
+            s.set('color_scheme', default_scheme)
+            s.erase('default_scheme')
         else:
-            # Otherwise just erease our user-scheme
-            vsettings.erase('color_scheme')
+            # Otherwise just erase our dimmed scheme
+            s.erase('color_scheme')
+
+    # This dict is static
+    _settings_dict = dict(
+        dim_strength=('inactive_panes_dim_strength', .2),
+        dim_color=('inactive_panes_dim_color', '#7F7F7F'),
+        # Including this in order to get a notification when the scheme has changed
+        _color_scheme=('color_scheme', None)
+    )
 
     def dim_view(self, view, window=None):
-        """Dim a view with our settings, if it's visible, and store prev view-spcific setting."""
+        """Dim a view, if it's visible, and store prev view-specific setting."""
         if not self._refreshed:
             return
 
-        vsettings = view.settings()
+        s = view.settings()
 
         # Reset to the base color scheme first if there was any
         # (in case ST was restarted).
-        if MODULE_NAME in vsettings.get('color_scheme'):
+        if MODULE_NAME in s.get('color_scheme') or view.id() in self._dimmed_view_settings:
+            debug("This should not have happened: %r %r"
+                  % (view.file_name(), s.get('color_scheme')))
             self.undim_view(view)
 
         # Don't bother any more if the current view is not on top
         if not self.view_is_visible(view, window):
             return
 
+        self.redim_view(view, force=False)
+
+    def redim_view(self, view, force=True):
+        """Dim a view and store prev view-specific setting.
+
+        Only call this if you know for sure that the view should be dimmed.
+        """
+        s = view.settings()
+
+        # Register on_change handler
+        if view.id() not in self._dimmed_view_settings:
+            vsettings = Settings(
+                s,
+                settings=self._settings_dict,
+                callback=partial(self.on_view_settings_changed, view)
+            )
+            self._dimmed_view_settings[view.id()] = vsettings
+            redim = False
+        else:
+            vsettings = self._dimmed_view_settings[view.id()]
+            redim = True
+
+        # Temporarily disable our hook to prevent infinite recursive call chains
+        # TODO contexthandler
+        vsettings._enabled = False
+
         # Note: all "scheme" paths here are relative
-        active_scheme = vsettings.get('color_scheme')
-        vsettings.erase('color_scheme')
-        default_scheme = vsettings.get('color_scheme')
-        if active_scheme != default_scheme:
-            # Because the settings do not equal after removing the view-specific setting the view's
-            # color scheme is explicitly set, so save it for later.
-            vsettings.set('default_scheme', active_scheme)
+        active_scheme = s.get('color_scheme')
+        # Determine the scheme to dim
+        if redim:
+            if MODULE_NAME in active_scheme:
+                if s.get("default_scheme"):
+                    active_scheme = s.get("default_scheme")
+                else:
+                    # The underlying scheme possibly changed
+                    s.erase('color_scheme')
+                    active_scheme = s.get('color_scheme')
+            # View-specific setting was overwritten
+            else:
+                default_scheme = active_scheme
+                s.set('default_scheme', active_scheme)
+        else:
+            s.erase('color_scheme')
+            default_scheme = s.get('color_scheme')
+            if active_scheme != default_scheme:
+                # Because the settings do not equal after removing the view-specific setting, the
+                # view's color scheme is explicitly set, so we save it for restoring later.
+                s.set('default_scheme', active_scheme)
 
         # Potentially copy and dim the scheme
-        inactive_scheme = self.create_inactive_scheme(active_scheme)
+        inactive_scheme = self.create_dimmed_scheme(active_scheme, vsettings, force)
         if inactive_scheme:
-            vsettings.set('color_scheme', inactive_scheme)
+            s.set('color_scheme', inactive_scheme)
+        else:
+            # Reset if failed
+            s.set('color_scheme', active_scheme)
+            s.erase('default_scheme')
+
+        # Re-enable the hook
+        vsettings._enabled = True
 
     def view_is_visible(self, view, window=None):
         """Check if specified view is on top of its group => it's actually visible."""
@@ -414,6 +499,12 @@ class InactivePanes(object):
             return window.active_group() != group
 
         return active_view.id() == view.id()
+
+    def on_view_settings_changed(self, view):
+        # view is assumed to be dimmed
+        assert view.id() in self._dimmed_view_settings  # TODO remove
+        debug("Settings changed for %s" % view.file_name())
+        self.redim_view(view)
 
 
 # Use this local instance for all the references
@@ -469,9 +560,9 @@ class ColorSchemeEmergencyResetCommand(sublime_plugin.ApplicationCommand):
     def run(self):
         for window in sublime.windows():
             for view in window.views():
-                vsettings = view.settings()
-                vsettings.erase('color_scheme')
-                vsettings.erase('default_scheme')
+                s = view.settings()
+                s.erase('color_scheme')
+                s.erase('default_scheme')
 
         print("All color scheme settings have been reset")
 

@@ -8,6 +8,9 @@ File History Changelog
   package ("InactivePanes_")
 - ST2: Fix new and unnamed tabs not being dimmed at all
 - ST2: Attempt to fix crashes when dragging tabs in multi-group layouts
+- Settings are now taken from project and syntax-specific settings as well.
+  With this you can adjust each color scheme's dim strength and color
+  exactly where you define the scheme, for example to match your theme.
 
 
 v0.3.1 (2013-05-31)
