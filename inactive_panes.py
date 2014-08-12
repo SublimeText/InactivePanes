@@ -44,11 +44,6 @@ def get_module_path():
 MODULE_PATH, _ = get_module_path()
 MODULE_NAME = os.path.split(MODULE_PATH)[1]
 
-# Emergency stop. You'll thank me if you ever experience what I did.
-if MODULE_PATH == sublime.packages_path():
-    import sys
-    sys.exit(1)
-
 # ST3 had a bug where we needed to copy to a different package dir because otherwise plugins from
 # archived packages would not be loaded. Since this has been fixed, remove it if it still exists.
 # See: http://www.sublimetext.com/forum/viewtopic.php?f=3&t=12564
@@ -148,13 +143,11 @@ class InactivePanes(object):
                                   "Error with function '%s': %s"
                                   % (path, function, excinfo))
 
-        # Delete all subdirs of this module to cleanup leftover schemes
+        # Delete 'Packages' subdir of this module to cleanup leftover schemes
         # (and regenerate them in case settings have changed during downtime)
-        for root, dirs, _ in os.walk(MODULE_PATH):
-            if '.git' in dirs:
-                dirs.remove('.git')  # do not iterate over .git or its subdirs
-            for d in dirs:
-                shutil.rmtree(os.path.join(root, d), onerror=onerror)
+        remdir = os.path.join(MODULE_PATH, 'Packages')
+        if os.path.exists(remdir):
+            shutil.rmtree(os.path.join(MODULE_PATH, 'Packages'), onerror=onerror)
 
         if not disable:
             self.refresh_views()
@@ -203,7 +196,7 @@ class InactivePanes(object):
         source_abs = os.path.join(data_path, *source_rel.split("/"))
         # Reconstruct the relative path inside of our module directory; we have something of a
         # shadow copy of the scheme.
-        dest_rel = prefix + "%s/%s" % (MODULE_NAME, source_rel[len(prefix):])
+        dest_rel = prefix + "%s/%s" % (MODULE_NAME, source_rel)
         dest_abs = os.path.join(data_path, *dest_rel.split("/"))
 
         # Copy and dim the scheme if it does not exist
