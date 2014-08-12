@@ -61,50 +61,25 @@ def debug(msg):
 
 # TODO move this somewhere else, preferrably submodule
 class Settings(object):
-    """Provides various helping functions for wrapping the sublime settings objects.
 
-    `settings` should be provided as a dict of tuples and attribute names should not be one of the
-    existing functions. And of course they should be valid attribute names.
+    """ST settings abstraction that helps with default values and running a callback when changed.
 
-    Example constructor:
-    Settings(
-        sublime.load_settings("Preferences.sublime-settings"),
-        dict(
-            attr_name_to_save_as=('settings_key_to_read_from', 'default_value'),
-            attr_name_to_save_as2='settings_key_to_read_from_with_default_None',
-            attr_name_and_settings_key_with_default_None=None
-            #, ...
-        ),
-        on_settings_changed,  # optional, callback
-        auto_update  # optional, bool
-                     # (whether the attributes should be kept up to date; default: True)
-    )
-
-    `settings_changed` will be called when the registered settings changed, and this time for real.
-    Sublime Text currently behaves weird with `add_on_change` calls and the callback is run more
-    often than it should be (as in, the specified setting didn't actually change), this wrapper
-    however tests if one of the values has changed and then calls the callback.
-    `update()` is called before the callback.
+    The main purpose is to always provide the correct value of a setting or a default, if set, under
+    the same identifier (here: attribute). The settings auto-update by default and a custom callback
+    may be specified that is called whenever one of the tracked settings value changes. Note that
+    this is different to Sublimes `settings.add_on_change` as that will be called in a variety of
+    cases and not only when the specified setting actually changed.
 
     Methods:
+        * __init__(settings_obj, settings, callback=None, auto_update=True):
         * update()
-            Reads all the settings and saves them in their respective attributes.
         * has_changed()
-            Returns a boolean if the currently cached settings differ from the settings object.
         * get_state()
-            Returns a dict with the tracked settings as keys and their values (NOT the attribute
-            names). With the above example: `{"settings_key_to_read_from": 'current_value'}`.
         * get_real_state()
-            Same as above but ALWAYS returns the actual current values in the settings object.
         * set_callback(callback, auto_update=True)
-            Calls `callback` whenever a tracked setting's value changes. See above on why this
-            behavior differs to `register`.
-            If `auto_update` is true it will automatically update the attributes when the settings
-            changes. This always happens when a callback is set.
-            Returns the previous callback if any.
         * clear_callback(clear_auto_update=False)
-            Clears the callback set above and returns it in the process.
     """
+
     _sobj = None
     _settings = None
     _callback = None
@@ -112,6 +87,26 @@ class Settings(object):
     _enabled = True
 
     def __init__(self, settings_obj, settings, callback=None, auto_update=True):
+        """Create a new instance.
+
+        `settings` should be provided as a dict of tuples and attribute names should not be one of
+        the existing functions. And of course they should be valid attribute names.
+
+        Example call:
+        Settings(
+            sublime.load_settings("Preferences.sublime-settings"),
+            settings=dict(
+                attr_name_to_save_as=('settings_key_to_read_from', 'default_value'),
+                attr_name_to_save_as2='settings_key_to_read_from_with_default_None',
+                attr_name_and_settings_key_with_default_None=None
+                #, ...
+            ),
+            callback=on_settings_changed,  # optional, callback
+            auto_update=True  # optional, bool (whether the attributes should be kept up to date)
+        )
+
+        For the callback and auto_update parameters, refer to `set_callback`.
+        """
         self._sobj = settings_obj
 
         for k, v in settings.items():
@@ -127,14 +122,16 @@ class Settings(object):
         self.set_callback(callback, auto_update)
 
     def __del__(self):
+        """Deregister callback when destructing."""
         self.clear_callback(True)
 
     def update(self):
+        """Read all the settings and save them in their respective attributes."""
         for attr, (name, def_value) in self._settings.items():
             setattr(self, attr, self._sobj.get(name, def_value))
 
     def _on_change(self):
-        # Only trigger if relevant settings changed
+        """Test if the tracked settings have changed and run a callback if specified."""
         if self.has_changed():
             self.update()
             if self._callback:
@@ -151,17 +148,35 @@ class Settings(object):
             self._sobj.clear_on_change(name)
 
     def has_changed(self):
+        """Return a boolean whether the cached settings differ from the settings object."""
         return self.get_state() != self.get_real_state()
 
     def get_state(self):
+        """Return a dict with the tracked settings and their cached values.
+
+        Does NOT use the attribute names but the setting keys.
+        With the example from __init__: `{"settings_key_to_read_from": 'current_value'}`.
+        """
         return dict((name, getattr(self, attr))
                     for attr, (name, _) in self._settings.items())
 
     def get_real_state(self):
+        """Return a dict with the tracked settings and their actual values from the settings obj.
+
+        Does NOT use the attribute names but the setting keys.
+        With the example from __init__: `{"settings_key_to_read_from": 'current_value'}`.
+        """
         return dict((name, self._sobj.get(name, def_value))
                     for name, def_value in self._settings.values())
 
-    def set_callback(self, callback, auto_update=True):
+    def set_callback(self, callback=None, auto_update=True):
+        """Register `callback` to be called whenever a tracked setting's value changes.
+
+        If `auto_update` is true, automatically update the attributes when the settings change. This
+        always happens when a callback is set, thus resulting in the values being up-to-date when
+        the callback is called.
+
+        Return the previous callback if any."""
         if callback is not None and not callable(callback):
             raise TypeError("callback must be callable or None")
 
@@ -174,6 +189,11 @@ class Settings(object):
         return old_cb
 
     def clear_callback(self, clear_auto_update=False):
+        """Clear the callback set with set_callback and return it in the process.
+
+        clear_auto_update=True will also remove auto-updating the attributes and `get_state`, if
+        previously enabled.
+        """
         old_cb = self._callback
         self._callback = None
         if self._registered and clear_auto_update:
