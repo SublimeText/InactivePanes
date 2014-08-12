@@ -1,6 +1,6 @@
-# Inactive Panes
+# InactivePanes
 
-Inactive Panes is a plugin for [Sublime Text][st] 2 and 3 that will dim the
+InactivePanes is a plugin for [Sublime Text][st] 2 and 3 that will dim the
 currently visible but inactivate panes to show you more visibly where your
 caret is and which view is focussed. Really useful with the [Origami][origami]
 plugin or ST3's native panel handling.
@@ -13,11 +13,10 @@ related to other plugins.
 Originally created by [adzenith][adzenith], maintained by
 [FichteFoll][FichteFoll].
 
-
-## Installation
+### Installation
 
 You can install this package from [Package Control][pck-ctrl] as
-`InactivePanes`.
+"InactivePanes".
 
 
 ## Usage
@@ -25,30 +24,34 @@ You can install this package from [Package Control][pck-ctrl] as
 Views in inactive groups will automatically dimmed automatically when you
 install it.
 
-When you want to disable this package, the easiest solution is to simply set
-the dim strength to `0` (see below). Alternatively you can use Package
-Control's `Disable Package` and `Enable Package` commands.
+When you want to disable this package, use Package Control's *Disable Package*
+and *Enable Package* commands. Alternatively you can adjust your
+`"ignored_packages"` setting manually.
 
-**Warning**: If you want to remove the package, use Package Control's `Remove
-Package` command. Do **not** delete the plugin folder by yourself if you didn't
+**Warning**: If you want to remove the package, use Package Control's *Remove
+Package* command. Do **not** delete the plugin folder by yourself if you didn't
 disable the package before and ST is not running! This will cause various error
 messages (but nothing critical).
 
 ### Configuration
 
-The following settings can be modified in your *User settings file*
-(`Preferences > Settings - User`):
+The following settings can be specified everywhere where you'd specify a
+`color_scheme` - user settings (*Preferences &gt; Settings - User*),
+syntax-specific (*Preferences &gt; Settings - More &gt; Syntax Specific - User*)
+or [project settings][projset]. Thus, you can adjust each color scheme
+separately to blend with your theme's sidebar for example.
 
 *   `"inactive_panes_dim_color"` (*default*: `"#7F7F7F"`, gray)
 
-    Change the color to dim to.
+    Change the color to dim to. Must be in the format `#RRGGBB` with hexadecimal
+    numbers.
 
 *   `"inactive_panes_dim_strength"` (*default*: `0.2`)
 
     Change the dim strength; ranges from `0` (no modification) to `1`
     (everything will be changed to the color set above).
 
-### Screnshots
+### Images
 
 #### Dark Scheme
 
@@ -59,7 +62,7 @@ Using [a modified][tw-fichte] Twilight color scheme with a dim strength of
 
 #### Bright Scheme
 
-Using LAZY color scheme with a dim strength of `0.3`:
+Using the bundled LAZY color scheme with a dim strength of `0.3`:
 
 [![][scr-bright-thumb]][scr-bright]
 
@@ -87,14 +90,14 @@ feature but due to various issues it was removed. I extracted relevant commits
 this feature because I've used it ever since and think that it's really useful.
 
 
+[//]: # (General links)
 [st]: https://www.sublimetext.com/
 [origami]: https://github.com/SublimeText/Origami
 [issues]: https://github.com/SublimeText/InactivePanes/issues
-[livecss]: https://github.com/a-sk/livecss
-
 [adzenith]: https://github.com/adzenith
 [FichteFoll]: https://github.com/FichteFoll
 
+[//]: # (Themes and Images)
 [tw-fichte]: https://gist.github.com/FichteFoll/5522507 "Gist: Twilight-Fichte.tmTheme"
 [scr-dark]: http://i.imgur.com/4uKGLf3.png "Twilight color scheme; 0.1"
 [scr-dark-thumb]: http://i.imgur.com/4uKGLf3l.png
@@ -103,7 +106,6 @@ this feature because I've used it ever since and think that it's really useful.
 [scr-dark_colored]: http://i.imgur.com/m5rc8j9.png "Twilight color scheme; 0.08; #7F7F00"
 [scr-dark_colored-thumb]: http://i.imgur.com/m5rc8j9l.png
 
-[pck-ctrl]: http://wbond.net/sublime_packages/package_control "Sublime Package Control by wbond"
-[data-dir]: http://docs.sublimetext.info/en/latest/basic_concepts.html#the-data-directory
-[packages-dir]: http://docs.sublimetext.info/en/latest/basic_concepts.html#the-packages-directory
-[tags]: https://github.com/SublimeText/InactivePanes/tags "Tags - SublimeText/InactivePanes"
+[//]: # (Specific (documentation) links)
+[projset]: http://www.sublimetext.com/docs/3/projects.html "Projects"
+[pck-ctrl]: https://sublime.wbond.net/ "Package Control"
