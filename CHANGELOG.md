@@ -1,11 +1,11 @@
 File History Changelog
 ======================
 
-~current iteration~
+v1.0.0 (2014-08-12)
 -------------------
 
 - Remove the old workaround that involved saving generated files to a different
-  package ("InactivePanes_")
+  package ("InactivePanes_") (#7)
 - ST2: Fix new and unnamed tabs not being dimmed at all
 - ST2: Attempt to fix crashes when dragging tabs in multi-group layouts
 - Settings are now taken from project and syntax-specific settings as well.
@@ -35,11 +35,13 @@ v0.2.2 (2013-05-30)
 - Remove the delay when changing focus
 - Fix even more errors
 
+
 v0.2.1 (2013-05-06)
 -------------------
 
 - Really fix (hopefully) all errors
 - Do not error when changing color schemes (and update all views accordingly)
+
 
 v0.2.0 (2013-05-06)
 -------------------
