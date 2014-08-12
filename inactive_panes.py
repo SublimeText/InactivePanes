@@ -13,7 +13,7 @@ except:
     from settings import Settings
 
 ST2 = int(sublime.version()) < 3000
-DEBUG = True
+DEBUG = False
 
 if not ST2:
     basestring = str
