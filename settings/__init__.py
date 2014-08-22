@@ -18,8 +18,9 @@ class Settings(object):
     The main purpose is to always provide the correct value of a setting or a default, if set, under
     the same identifier (here: attribute). The settings auto-update by default and a custom callback
     may be specified that is called whenever one of the tracked settings value changes. Note that
-    this is different to Sublimes `settings.add_on_change` as that will be called in a variety of
-    cases and not only when the specified setting actually changed.
+    this is different to Sublimes `settings.add_on_change` as that will be called when any
+    containing setting *could* have changed, while we only want it if the specified setting actually
+    changed.
 
     Methods:
         * __init__(settings_obj, settings, callback=None, auto_update=True):
@@ -31,6 +32,10 @@ class Settings(object):
         * clear_callback(clear_auto_update=False)
     """
 
+    # Static class variables
+    KEY = "__settings_abstr"
+
+    # Instance variables
     _sobj = None
     _settings = None
     _callback = None
@@ -89,13 +94,11 @@ class Settings(object):
 
     def _register(self, callback):
         self._registered = True
-        for name, _ in self._settings.values():
-            self._sobj.add_on_change(name, callback)
+        self._sobj.add_on_change(self.KEY, callback)
 
     def _unregister(self):
         self._registered = False
-        for name, _ in self._settings.values():
-            self._sobj.clear_on_change(name)
+        self._sobj.clear_on_change(self.KEY)
 
     def has_changed(self):
         """Return a boolean whether the cached settings differ from the settings object."""
@@ -126,7 +129,8 @@ class Settings(object):
         always happens when a callback is set, thus resulting in the values being up-to-date when
         the callback is called.
 
-        Return the previous callback if any."""
+        Return the previous callback if any.
+        """
         if callback is not None and not callable(callback):
             raise TypeError("callback must be callable or None")
 
