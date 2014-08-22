@@ -94,11 +94,12 @@ class Settings(object):
 
     def _register(self, callback):
         self._registered = True
-        self._sobj.add_on_change(self.KEY, callback)
+        # Use a 100% unique identifier (because ids are never equal for non-primitives)
+        self._sobj.add_on_change(self.KEY + str(id(self)), callback)
 
     def _unregister(self):
         self._registered = False
-        self._sobj.clear_on_change(self.KEY)
+        self._sobj.clear_on_change(self.KEY + str(id(self)))
 
     def has_changed(self):
         """Return a boolean whether the cached settings differ from the settings object."""
