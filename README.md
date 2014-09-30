@@ -84,7 +84,7 @@ Using [a modified][tw-fichte] Twilight color scheme with a custom color of
 
 ## About
 
-Inactive Panes is a split from [Origami][origami] which once included this
+InactivePanes is a split from [Origami][origami] which once included this
 feature but due to various issues it was removed. I extracted relevant commits
 (for retaining the commit history) from the Origami repo to keep developing
 this feature because I've used it ever since and think that it's really useful.
