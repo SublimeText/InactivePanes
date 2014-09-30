@@ -387,7 +387,6 @@ class InactivePanes(object):
 
     def on_view_settings_changed(self, view):
         # view is assumed to be dimmed
-        assert view.id() in self._dimmed_view_settings  # TODO remove
         debug("Settings changed for %s" % view.file_name())
         self.redim_view(view)
 
@@ -397,9 +396,11 @@ inpanes = InactivePanes()
 
 
 class InactivePanesListener(sublime_plugin.EventListener):
+    TIMEOUT = 50
+
     def on_activated(self, view):
         if ST2:
-            sublime.set_timeout(50, lambda: self.on_activated_async(view))
+            sublime.set_timeout(lambda: self.on_activated_async(view), self.TIMEOUT)
 
     def on_activated_async(self, view):
         # For some weird reason, ST2 fires this event twice for every view,
@@ -412,7 +413,7 @@ class InactivePanesListener(sublime_plugin.EventListener):
 
     def on_deactivated(self, view):
         if ST2:
-            sublime.set_timeout(50, lambda: self.on_deactivated_async(view))
+            sublime.set_timeout(lambda: self.on_deactivated_async(view), self.TIMEOUT)
 
     def on_deactivated_async(self, view):
         if (
