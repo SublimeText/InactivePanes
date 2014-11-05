@@ -450,21 +450,6 @@ class InactivePanesListener(sublime_plugin.EventListener):
             vsettings.clear_callback(True)
 
 
-# I don't use this currently but maybe it will come in hand when debugging other's issues
-class ColorSchemeEmergencyResetCommand(sublime_plugin.ApplicationCommand):
-
-    """Removes view-specific color scheme settings (including our temporary)."""
-
-    def run(self):
-        for window in sublime.windows():
-            for view in window.views():
-                s = view.settings()
-                s.erase('color_scheme')
-                s.erase('default_scheme')
-
-        print("All color scheme settings have been reset")
-
-
 def plugin_loaded():
     inpanes.init()
 
