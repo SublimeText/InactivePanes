@@ -50,13 +50,16 @@ MODULE_NAME = os.path.split(MODULE_PATH)[1]
 if os.path.exists(MODULE_PATH + '_'):
     try:
         shutil.rmtree(MODULE_PATH + '_')
+        print("The deprecated '%s_' dirictory was removed.")
     except Exception as e:
         print("Unable to remove the deprecated '%s_' dir: %s %s"
               % (MODULE_NAME, e.__class__.__name__, e))
 
 
 def debug(msg):
-    if DEBUG:
+    # This function is only called after the API has initialized so we can use load_settings
+    if DEBUG or (sublime.load_settings("Preferences.sublime-settings")
+                 .get("inactive_panes_debug", False)):
         print("[%s] %s" % (MODULE_NAME, msg))
 
 
@@ -79,17 +82,17 @@ class InactivePanesSettings(Settings):
             # For this we need to temporarily erase the setting.
             s = self._sobj
             # Disable to prevent an infinite recursive call chain.
-            self._enabled = False
-            dimmed_scheme = s.get("color_scheme")
-            s.erase("color_scheme")
-            base_scheme = s.get("color_scheme")[len('Packages/'):]
-            s.set("color_scheme", dimmed_scheme)
+            with self.temp_disable():
+                dimmed_scheme = s.get("color_scheme")
+                s.erase("color_scheme")
+                base_scheme = s.get("color_scheme")[len('Packages/'):]
+                s.set("color_scheme", dimmed_scheme)
 
-            underlying_changed = (base_scheme not in dimmed_scheme
-                                  or MODULE_NAME not in dimmed_scheme)
-            self._enabled = True
+                underlying_changed = (base_scheme not in dimmed_scheme
+                                      or MODULE_NAME not in dimmed_scheme)
             if not underlying_changed:
                 return
+            debug("Underlying setting has changed to %r" % base_scheme)
 
         self.update()
         if self._callback:
@@ -110,7 +113,6 @@ class InactivePanes(object):
     Maybe I can think of a better way to structure plugins like these but for now this'll do it.
     """
 
-    _settings  = None
     _refreshed = False
     _dimmed_view_settings = dict()
 
@@ -122,6 +124,10 @@ class InactivePanes(object):
 
     def deinit(self):
         self.cycling_reset(disable=True)
+        # Clear settings callbacks
+        for v in self._dimmed_view_settings.values():
+            v.clear_callback(True)
+        self._dimmed_view_settings = dict()
 
     # Core methods
 
@@ -240,14 +246,14 @@ class InactivePanes(object):
 
         # Check settings validity.
         if not isinstance(dim_strength, (int, float)) or dim_strength < 0 or dim_strength > 1:
-            print("![%s] Dim strength is not a number between 0 and 1!" % (MODULE_NAME))
+            print("![%s] Dim strength is not a number between 0 and 1!" % MODULE_NAME)
             return
 
         re_rgb = re.compile("#" + (r"([0-9A-F]{2})" * 3), re.I)
         dim_rgb = re_rgb.match(dim_color)
         if not dim_rgb or not len(dim_color) == 7:
             print("![%s] Dim color must be of format '#RRGGBB' where the colors are hexadecimal "
-                  "digits from 0 to F!" % (MODULE_NAME))
+                  "digits from 0 to F!" % MODULE_NAME)
             return
 
         # Pre-calc the dim rgb fractions because they are static.
@@ -288,14 +294,6 @@ class InactivePanes(object):
             # Otherwise just erase our dimmed scheme
             s.erase('color_scheme')
 
-    # This dict is static
-    _settings_dict = dict(
-        dim_strength=('inactive_panes_dim_strength', .2),
-        dim_color=('inactive_panes_dim_color', '#7F7F7F'),
-        # Including this in order to get a notification when the scheme has changed
-        _color_scheme=('color_scheme', None)
-    )
-
     def dim_view(self, view, window=None):
         """Dim a view, if it's visible, and store prev view-specific setting."""
         if not self._refreshed:
@@ -315,6 +313,14 @@ class InactivePanes(object):
             return
 
         self.redim_view(view, force=False)
+
+    # This dict is static
+    _settings_dict = dict(
+        dim_strength=('inactive_panes_dim_strength', .2),
+        dim_color=('inactive_panes_dim_color', '#7F7F7F'),
+        # Including this in order to get a notification when the scheme has changed
+        _color_scheme=('color_scheme', None)
+    )
 
     def redim_view(self, view, force=True):
         """Dim a view and store prev view-specific setting.
@@ -436,6 +442,12 @@ class InactivePanesListener(sublime_plugin.EventListener):
         # (on ST2, non-visible views seem to have no window associated at this time)
         if view.window() and view.id() != view.window().active_view().id():
             inpanes.dim_view(view)
+
+    def on_close(self, view):
+        # Clear settings callbacks
+        vsettings = self._dimmed_view_settings.pop(view.id(), None)
+        if vsettings:
+            vsettings.clear_callback(True)
 
 
 # I don't use this currently but maybe it will come in hand when debugging other's issues
