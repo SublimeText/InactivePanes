@@ -1,6 +1,13 @@
 InactivePanes Changelog
 =======================
 
+v1.0.2 (2014-11-05)
+-------------------
+
+- Potentially fix a bug that would cause the plugin to not unload correctly
+- You can now enable debug output with `inactive_panes_debug` from your user
+  settings file (Preferences.sublime-settings)
+
 v1.0.1 (2014-09-30)
 -------------------
 
@@ -23,7 +30,8 @@ v0.3.1 (2013-05-31)
 -------------------
 
 - Add setting to set a costom color to dim to
-* **Note**: The `fade_inactive_panes_gray_scale` setting has been renamed to `inactive_panes_dim_strength`
+- **Note**: The `fade_inactive_panes_gray_scale` setting has been renamed to
+  `inactive_panes_dim_strength`
 - The plugin won't do anything now if dim strength is set to `0`
 
 
