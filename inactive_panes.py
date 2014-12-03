@@ -220,13 +220,18 @@ class InactivePanes(object):
                     raise  # re-raise to make sure that this plugin will not be executed further
 
             write_params = {}
-            if ST2:
-                with open(source_abs, 'r') as f:
-                    data = f.read()
-            else:
-                # ST3 does not unzip .sublime-packages, thus the "load_resource" API will be used.
-                data = sublime.load_resource(source_rel)
-                write_params["encoding"] = 'utf-8'
+            try:
+                if ST2:
+                    with open(source_abs, 'r') as f:  # throws OSError
+                        data = f.read()
+                else:
+                    # ST3 does not unzip .sublime-packages, thus the "load_resource" API is used.
+                    data = sublime.load_resource(source_rel)  # throws OSError
+                    write_params["encoding"] = 'utf-8'
+            except OSError as e:
+                # Unable to open the file for whatever reason.
+                print("![%s] " % MODULE_NAME)
+                return
 
             debug("Generating dimmed color scheme for '%s'" % source_rel)
             new_data = self.dim_scheme(data, settings)
