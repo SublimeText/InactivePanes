@@ -1,12 +1,20 @@
 InactivePanes Changelog
 =======================
 
+v1.0.3 (2014-12-03)
+-------------------
+
+- Small fix to not throw an exception on every close event and instead do the
+  right thing (#11)
+
+
 v1.0.2 (2014-11-05)
 -------------------
 
 - Potentially fix a bug that would cause the plugin to not unload correctly
 - You can now enable debug output with `inactive_panes_debug` from your user
   settings file (Preferences.sublime-settings)
+
 
 v1.0.1 (2014-09-30)
 -------------------
