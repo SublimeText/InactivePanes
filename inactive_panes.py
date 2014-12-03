@@ -445,7 +445,7 @@ class InactivePanesListener(sublime_plugin.EventListener):
 
     def on_close(self, view):
         # Clear settings callbacks
-        vsettings = self._dimmed_view_settings.pop(view.id(), None)
+        vsettings = inpanes._dimmed_view_settings.pop(view.id(), None)
         if vsettings:
             vsettings.clear_callback(True)
 
