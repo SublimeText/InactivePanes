@@ -77,9 +77,10 @@ Using [a modified][tw-fichte] Twilight color scheme with a custom color of
 ### Known Issues
 
 - When opening the same file in two groups (with command palette or by cloning
-  it) both of the views will be marked as active. This is because there is no
-  way to assign different color schemes to these view's since they share the
-  same settings.
+  it), both of the views will be marked as inactive. This is caused by an
+  underlying Sublime Text bug
+  (https://github.com/SublimeTextIssues/Core/issues/731) and can be worked
+  around by **restarting Sublime Text** after cloning.
 
 
 ## About
