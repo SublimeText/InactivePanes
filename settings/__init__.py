@@ -4,12 +4,6 @@ Exported classes:
     * Settings
 """
 
-# Python 2 backwards compat
-try:
-    basestring
-except NameError:
-    basestring = str
-
 
 class Settings(object):
 
@@ -71,7 +65,7 @@ class Settings(object):
             if v is None:
                 # Use the attr name as settings key and `None` as default
                 settings[k] = (k, None)
-            if isinstance(v, basestring):
+            if isinstance(v, str):
                 # Set default to `None` if a string was supplied
                 settings[k] = (v, None)
         self._settings = settings
