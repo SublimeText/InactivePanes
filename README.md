@@ -2,7 +2,7 @@
 
 InactivePanes is a plugin for [Sublime Text][st] 2 and 3 that will dim the
 currently visible but inactivate panes to show you more visibly where your
-caret is and which view is focussed. Really useful with the [Origami][origami]
+caret is and which view is focussed. Really useful with the [Origami][]
 plugin or ST3's native panel handling.
 
 This plugin could have incompatabilities with other plugins that modify color
@@ -10,12 +10,12 @@ schemes programmatically, but so far no issues have been found. Please report
 errors you *do* encounter with this plugin [here][issues], also if they are not
 related to other plugins.
 
-Originally created by [adzenith][adzenith], maintained by
-[FichteFoll][FichteFoll].
+Originally created by [adzenith][], maintained by
+[FichteFoll][].
 
 ### Installation
 
-You can install this package from [Package Control][pck-ctrl] as
+You can install this package from [Package Control][] as
 "InactivePanes".
 
 
@@ -91,14 +91,14 @@ feature but due to various issues it was removed. I extracted relevant commits
 this feature because I've used it ever since and think that it's really useful.
 
 
-[//]: # (General links)
+<!-- General links -->
 [st]: https://www.sublimetext.com/
-[origami]: https://github.com/SublimeText/Origami
+[Origami]: https://github.com/SublimeText/Origami
 [issues]: https://github.com/SublimeText/InactivePanes/issues
 [adzenith]: https://github.com/adzenith
 [FichteFoll]: https://github.com/FichteFoll
 
-[//]: # (Themes and Images)
+<!-- Themes and Images -->
 [tw-fichte]: https://gist.github.com/FichteFoll/5522507 "Gist: Twilight-Fichte.tmTheme"
 [scr-dark]: http://i.imgur.com/4uKGLf3.png "Twilight color scheme; 0.1"
 [scr-dark-thumb]: http://i.imgur.com/4uKGLf3l.png
@@ -107,6 +107,6 @@ this feature because I've used it ever since and think that it's really useful.
 [scr-dark_colored]: http://i.imgur.com/m5rc8j9.png "Twilight color scheme; 0.08; #7F7F00"
 [scr-dark_colored-thumb]: http://i.imgur.com/m5rc8j9l.png
 
-[//]: # (Specific (documentation) links)
+<!-- Specific (documentation) links -->
 [projset]: http://www.sublimetext.com/docs/3/projects.html "Projects"
-[pck-ctrl]: https://sublime.wbond.net/ "Package Control"
+[Package Control]: https://packagecontrol.io/ "Package Control"
