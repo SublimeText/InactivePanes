@@ -15,12 +15,14 @@ class Settings(object):
 
     """ST settings abstraction that helps with default values and running a callback when changed.
 
-    The main purpose is to always provide the correct value of a setting or a default, if set, under
-    the same identifier (here: attribute). The settings auto-update by default and a custom callback
-    may be specified that is called whenever one of the tracked settings value changes. Note that
-    this is different to Sublimes `settings.add_on_change` as that will be called when any
-    containing setting *could* have changed, while we only want it if the specified setting actually
-    changed.
+    The main purpose is to always provide the correct value of a setting or a default,
+    if set, under the same identifier (here: attribute).
+    The settings auto-update by default
+    and a custom callback may be specified
+    that is called whenever one of the tracked settings value changes.
+    Note that this is different to Sublimes `settings.add_on_change`
+    as that will be called when any containing setting *could* have changed,
+    while we only want it if the specified setting actually changed.
 
     Methods:
         * __init__(settings_obj, settings, callback=None, auto_update=True):
@@ -44,8 +46,9 @@ class Settings(object):
     def __init__(self, settings_obj, settings, callback=None, auto_update=True):
         """Create a new instance.
 
-        `settings` should be provided as a dict of tuples and attribute names should not be one of
-        the existing functions. And of course they should be valid attribute names.
+        `settings` should be provided as a dict of tuples,
+        and attribute names should not be one of the existing functions.
+        And of course they should be valid attribute names.
 
         Example call:
         Settings(
@@ -126,9 +129,10 @@ class Settings(object):
     def set_callback(self, callback=None, auto_update=True):
         """Register `callback` to be called whenever a tracked setting's value changes.
 
-        If `auto_update` is true, automatically update the attributes when the settings change. This
-        always happens when a callback is set, thus resulting in the values being up-to-date when
-        the callback is called.
+        If `auto_update` is true, automatically update the attributes when the settings change.
+        This always happens when a callback is set,
+        thus resulting in the values being up-to-date
+        when the callback is called.
 
         Return the previous callback if any.
         """
@@ -146,8 +150,8 @@ class Settings(object):
     def clear_callback(self, clear_auto_update=False):
         """Clear the callback set with set_callback and return it in the process.
 
-        clear_auto_update=True will also remove auto-updating the attributes and `get_state`, if
-        previously enabled.
+        clear_auto_update=True will also remove auto-updating the attributes and `get_state`,
+        if previously enabled.
         """
         old_cb = self._callback
         self._callback = None
