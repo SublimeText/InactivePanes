@@ -1,6 +1,13 @@
 InactivePanes Changelog
 =======================
 
+v1.0.4 (2023-02-13)
+-------------------
+
+- Only show the warning about an unsupported configuration once. (#22)
+- Officially deprecate the package.
+
+
 v1.0.3 (2014-12-03)
 -------------------
 
