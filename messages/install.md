@@ -1,4 +1,15 @@
-Congratulations, you have successfully installed InactivePanes.
+Congratulations, you have successfully installed InactivePanes. However,
+InactivePanes has been deprecated in favor of the native dimming feature of
+Sublime Text 4.0.
+
+Please see the project README below for detailed instructions to enable this
+feature if you are using a third-party theme that does not support it.
+
+https://github.com/SublimeText/InactivePanes#readme
+
+Following is the original installation message.
+
+---
 
 When you want to disable this package, use Package Control's *Disable Package*
 and *Enable Package* commands. Alternatively you can adjust your
