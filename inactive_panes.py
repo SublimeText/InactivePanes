@@ -14,6 +14,7 @@ except:
 
 ST2 = int(sublime.version()) < 3000
 DEBUG = False
+warning_shown = False
 
 if not ST2:
     basestring = str
@@ -186,13 +187,19 @@ class InactivePanes(object):
         prefix = "Packages/"
         if not source_rel.startswith(prefix):
             # However, if this is not true ...
+            global warning_shown
+            if warning_shown:
+                return
             sublime.message_dialog(
                 "Warning!\n"
                 "Your setup seems to use an unrecognized color scheme setting which %s does not "
-                "take care of. Please create an issue at this package's repository or a post in "
-                "the forum and mention your color_scheme path: '%s'."
-                % (MODULE_NAME, source_rel)
+                "take care of. Since version 4.0, "
+                "Sublime Text supports dimming of inactive panes natively "
+                "and you are encouraged to use it instead.\n"
+                "See https://github.com/sublimehq/sublime_text/issues/2041."
+                % (MODULE_NAME,)
             )
+            warning_shown = True
             return
 
         # Very unlikely to change but "packages_path" is not available at module load time.
